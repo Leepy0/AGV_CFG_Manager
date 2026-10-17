@@ -1,0 +1,14 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+publish/
+dist/
+*.nupkg
+
+# 로컬 산출물
+*.log
+*.partial
