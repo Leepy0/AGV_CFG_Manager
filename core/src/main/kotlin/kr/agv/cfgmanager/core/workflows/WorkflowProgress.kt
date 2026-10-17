@@ -114,4 +114,6 @@ data class ApplyResult(
     val changedKeys: Set<ConfigKey>,
     val saved: Boolean,
     val after: DeviceSnapshot?,
+    /** 재부팅 확인 메모 ([BootNote]). 재부팅 전에 실패했으면 null. */
+    val bootNote: String? = null,
 )

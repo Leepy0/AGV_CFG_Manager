@@ -48,7 +48,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 ```
 
 - `-Pchannel` 은 앱 안의 `BuildConfig.CHANNEL`(기본 `local`), `-PversionName` · `-PversionCode` 는 버전 값, `-PsourceRevision` 은 정보 화면의 커밋 표시입니다.
-- 릴리스 서명은 `KEYSTORE_FILE` · `KEYSTORE_PASSWORD` · `KEY_ALIAS` · `KEY_PASSWORD` 네 값을 `-P` 나 환경변수로 **모두** 넘겼을 때만 적용됩니다. 하나라도 없으면 서명하지 않은 `app-release-unsigned.apk` 가 나오며 로컬 빌드는 실패하지 않습니다.
+- 릴리스 서명은 `KEYSTORE_FILE` · `KEYSTORE_PASSWORD` · `KEY_ALIAS` · `KEY_PASSWORD` 네 값을 `-P` 나 환경변수로 **모두** 넘겼을 때만 적용됩니다. 하나라도 없으면 디버그 키로 서명합니다(`signingConfigs.debug`). 디버그 키는 PC 마다 달라 다른 PC 의 설치본을 덮어 설치하지 못하므로, 현장 설치본은 한 PC 에서 만든 APK 로 맞추세요.
 
 ## 릴리스 (정식 배포)
 

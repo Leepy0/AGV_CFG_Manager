@@ -147,8 +147,7 @@ jobs:
             if [ -z "${!name}" ]; then missing="$missing $name"; fi
           done
           if [ -n "$missing" ]; then
-            echo "::error title=서명 secrets 없음::정식 릴리스에는 release keystore 가 필요합니다. 저장소 Settings > Secrets and variables > Actions 에 다음을 등록하세요:$missing (README 의 '릴리스' 절 참고)"
-            exit 1
+            echo "::warning title=서명 secrets 없음::release keystore 가 없어 디버그 키로 서명합니다. 이 APK 는 키가 다른 PC 의 설치본을 덮어 설치하지 못합니다."
           fi
 
       - name: Resolve version from tag

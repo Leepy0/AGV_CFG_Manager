@@ -198,7 +198,7 @@ class ApplyRunner(
         action = "apply",
         result = result.historyResult,
         rssi = after?.status?.wifi?.rssi,
-        note = if (saveOnly) "저장만(재부팅 안 함)" else "",
+        note = listOfNotNull(if (saveOnly) "저장만(재부팅 안 함)" else null, result.bootNote).joinToString(" · "),
     )
 
     private fun notReady(reason: String): ApplyResult = ApplyResult(

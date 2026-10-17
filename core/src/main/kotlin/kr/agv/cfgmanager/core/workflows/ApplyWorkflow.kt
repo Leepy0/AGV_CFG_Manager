@@ -58,6 +58,8 @@ class ApplyWorkflow(
         private var saved = false
         private var changed: Set<ConfigKey> = emptySet()
         private var lastStatus: BridgeStatus? = null
+        private var rebootStartMs = 0L
+        private var bootNote: String? = null
 
         suspend fun run(): ApplyResult {
             val result = try {
@@ -69,10 +71,11 @@ class ApplyWorkflow(
                     changedKeys = changed,
                     saved = saved,
                     after = null,
+                    bootNote = bootNote,
                 )
             } catch (lost: BridgeChannelException) {
                 val failure = ApplyFailure.Disconnected(step)
-                ApplyResult(ApplyOutcome.Failed(step, failure), failure.historyCode(), changed, saved, null)
+                ApplyResult(ApplyOutcome.Failed(step, failure), failure.historyCode(), changed, saved, null, bootNote)
             }
             onProgress(WorkflowProgress.Finished(result))
             return result
@@ -135,6 +138,7 @@ class ApplyWorkflow(
 
             step = ApplyStep.Reboot
             report("재부팅")
+            rebootStartMs = nowMillis()
             val rebootReply = try {
                 channel.execThenDisconnect(BridgeCommands.reboot())
             } catch (timeout: BridgeChannelException.Timeout) {
@@ -150,7 +154,11 @@ class ApplyWorkflow(
 
             step = ApplyStep.WaitReady
             report("재연결 대기")
-            if (!channel.waitReady(reconnectTimeout)) throw StepFailure(ApplyFailure.ReconnectTimeout)
+            if (!channel.waitReady(reconnectTimeout)) {
+                bootNote = BootNote.timeout(nowMillis() - rebootStartMs)
+                throw StepFailure(ApplyFailure.ReconnectTimeout)
+            }
+            bootNote = BootNote.ok(nowMillis() - rebootStartMs, readStatus())
 
             step = ApplyStep.VerifyWifi
             report("Wi-Fi 연결 확인")
@@ -250,7 +258,7 @@ class ApplyWorkflow(
         }
 
         private fun finish(outcome: ApplyOutcome, historyResult: String, after: DeviceSnapshot?): ApplyResult =
-            ApplyResult(outcome, historyResult, changed, saved, after)
+            ApplyResult(outcome, historyResult, changed, saved, after, bootNote)
 
         private fun report(message: String, done: Int = 0, total: Int = 0) {
             onProgress(WorkflowProgress.Step(step, message, done, total))

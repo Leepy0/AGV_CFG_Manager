@@ -14,8 +14,9 @@ val appVersionCode: Int = providers.gradleProperty("versionCode").orElse("100").
 // 커밋 식별자 (정보 화면). CI 는 -PsourceRevision=<짧은 sha> 를 넘긴다. 로컬 빌드는 "local".
 val appRevision: String = providers.gradleProperty("sourceRevision").orElse("local").get()
 
-// 릴리스 서명 (docs/DEVELOPMENT_PLAN.md 12장). -P 나 환경변수로 넘긴다. 하나라도 없으면 서명하지 않은 release 를 만든다.
-// 로컬 빌드는 실패하지 않는다. CI 는 GitHub Secrets 를 KEYSTORE_FILE 등 환경변수로 넘긴다.
+// 릴리스 서명 (docs/DEVELOPMENT_PLAN.md 12장). -P 나 환경변수로 넘긴다. 네 값이 모두 있으면 그 키로 서명한다.
+// 하나라도 없으면 디버그 키로 서명한다 (docs/DECISIONS.md, 서명 방식 b). 디버그 키는 PC 마다 달라서,
+// 다른 PC 에서 만든 APK 와는 서로 덮어 설치되지 않는다.
 fun signingValue(name: String): String? =
     providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
 
@@ -60,8 +61,10 @@ android {
         release {
             // 축소 · 난독화는 ZXing 과 Keystore 검증을 실기로 확인하기 전까지 끈다 (docs/DECISIONS.md).
             isMinifyEnabled = false
-            if (releaseSigningReady) {
-                signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (releaseSigningReady) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
             }
         }
     }
