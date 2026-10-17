@@ -18,3 +18,15 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 | [CLAUDE.md](CLAUDE.md) | 개발 작업 규칙 |
 
 기술: Kotlin · Jetpack Compose · Material 3 · minSdk 26 · GitHub Releases APK + 앱 내 업데이트(github.com 매니페스트).
+
+## 빌드
+
+준비물: JDK 17 이상(CI 는 17), Android SDK 의 `platforms;android-35` · `build-tools;35.0.0`. `local.properties` 에 `sdk.dir=…` 을 적거나 `ANDROID_HOME` 을 설정합니다. `local.properties` 는 커밋하지 않습니다.
+
+```
+./gradlew :core:test                                  # JVM 단위 테스트 (하드웨어 없이)
+./gradlew :app:assembleDebug                          # 디버그 APK → app/build/outputs/apk/debug/
+./gradlew :app:assembleDebug -Pchannel=dev -PversionName=0.1.0 -PversionCode=100
+```
+
+`-Pchannel` 은 앱 안의 `BuildConfig.CHANNEL`(기본 `local`), `-PversionName` · `-PversionCode` 는 버전 값을 덮어씁니다. 릴리스 서명과 정식 배포 절차는 계획서 12장(Phase 6)에서 추가합니다.

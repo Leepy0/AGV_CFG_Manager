@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 창 배경만 정한다. 화면 색은 Compose MaterialTheme(ui/theme) 이 맡는다. -->
+    <style name="Theme.AgvCfgManager" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

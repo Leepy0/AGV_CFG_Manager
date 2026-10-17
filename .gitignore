@@ -4,6 +4,7 @@
 build/
 local.properties
 .idea/
+.kotlin/
 captures/
 .externalNativeBuild/
 .cxx/
@@ -11,7 +12,13 @@ captures/
 *.aab
 *.keystore
 *.jks
+keystore.properties
+*.hprof
 
 # 로컬 산출물
 *.log
 *.partial
+
+# OS
+.DS_Store
+Thumbs.db
