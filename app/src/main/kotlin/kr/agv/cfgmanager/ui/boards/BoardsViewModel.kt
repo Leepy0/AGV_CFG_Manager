@@ -9,6 +9,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -52,26 +53,13 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** 스캔 시작. 권한 · 블루투스 · 위치를 먼저 검사하고 실패하면 오류 상태로 둔다. */
+    /**
+     * 스캔 시작. 블루투스 쪽 권한 · 블루투스 · 위치를 검사한다. 막혀 있어도 USB 콘솔은 따로 찾는다 (docs/DECISIONS.md, Phase 7).
+     * 막힌 이유는 오류로 보이고, USB 행이 있으면 목록을 함께 보인다.
+     */
     fun startScan() {
         if (scanJob?.isActive == true) return
-        if (!container.isFakeMode()) {
-            when (val check = container.preflight.check()) {
-                Preflight.Ready -> Unit
-                is Preflight.NeedPermission -> {
-                    _ui.update { it.copy(error = ScanError.Permission(check.permissions), scanState = ScanState.Idle) }
-                    return
-                }
-                Preflight.BluetoothOff -> {
-                    _ui.update { it.copy(error = ScanError.BluetoothOff, scanState = ScanState.Idle) }
-                    return
-                }
-                Preflight.LocationOff -> {
-                    _ui.update { it.copy(error = ScanError.LocationOff, scanState = ScanState.Idle) }
-                    return
-                }
-            }
-        }
+        val wirelessBlock = if (container.isFakeMode()) null else wirelessBlockOf(container.preflight.check())
         val now = now()
         if (lastStartMs != 0L && now - lastStartMs < RESCAN_GAP_MS) {
             _ui.update { it.copy(notice = "스캔은 6초 간격으로만 시작할 수 있습니다. 잠시 후 다시 누르세요.") }
@@ -80,7 +68,7 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
         lastStartMs = now
         reloadHistory()
         _ui.update {
-            it.copy(scanState = ScanState.Scanning, rows = emptyList(), nowMs = now, scanStartedMs = now, error = null, notice = null)
+            it.copy(scanState = ScanState.Scanning, rows = emptyList(), nowMs = now, scanStartedMs = now, error = wirelessBlock, notice = null)
         }
         session.setScanning(true)
         scanJob = viewModelScope.launch {
@@ -91,7 +79,15 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
                 }
             }
             try {
-                container.boards.discover(container.settings.current.scanSeconds.seconds).collect { rows: List<BoardRow> ->
+                val duration = container.settings.current.scanSeconds.seconds
+                val rowsFlow: Flow<List<BoardRow>> = when {
+                    container.isFakeMode() -> container.boards.discover(duration)
+                    wirelessBlock != null -> container.usb.discover(duration)
+                    else -> combine(container.usb.discover(duration), container.boards.discover(duration)) { wired, wireless ->
+                        wired + wireless
+                    }
+                }
+                rowsFlow.collect { rows: List<BoardRow> ->
                     _ui.update { it.copy(rows = rows, nowMs = now()) }
                 }
             } catch (cancelled: CancellationException) {
@@ -179,6 +175,14 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
 
     private fun bannerOf(b: BatchUi): String? =
         if (!b.enabled) null else "다음: ${b.state.nextAgv}호기 · ${b.profileName ?: "프로필 없음"}"
+
+    /** 블루투스 쪽 검사 결과를 스캔 오류로 바꾼다. 막히지 않았으면 null. */
+    private fun wirelessBlockOf(check: Preflight): ScanError? = when (check) {
+        Preflight.Ready -> null
+        is Preflight.NeedPermission -> ScanError.Permission(check.permissions)
+        Preflight.BluetoothOff -> ScanError.BluetoothOff
+        Preflight.LocationOff -> ScanError.LocationOff
+    }
 
     private fun now(): Long = System.currentTimeMillis()
 

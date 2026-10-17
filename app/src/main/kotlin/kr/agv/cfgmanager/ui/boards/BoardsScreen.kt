@@ -174,6 +174,9 @@ fun BoardsContent(
                     }
                 }
                 BoardsView.Content -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    ui.error?.let { error ->
+                        item { ScanErrorBanner(error, onErrorAction, onOpenAppSettings) }
+                    }
                     items(ui.arrangedRows(), key = { it.address }) { row ->
                         val key = row.address.uppercase()
                         BoardRowItem(
@@ -283,6 +286,33 @@ fun BoardRowItem(row: BoardRow, nowMs: Long, historyAgv: Int?, done: Boolean, on
             contentDescription = "연결",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/** 목록 위의 스캔 오류 한 줄 (USB 행은 그대로 보인다). 무엇이 막혔는지와 다음 행동만 적는다. */
+@Composable
+private fun ScanErrorBanner(
+    error: ScanError,
+    onErrorAction: (ScanError) -> Unit,
+    onOpenAppSettings: () -> Unit,
+) {
+    val (primary, _) = errorActions(error, onErrorAction, onOpenAppSettings)
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = AgvSpacing.S)) {
+        Text(
+            ScanErrorText.title(error),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        Text(
+            "USB 로 연결한 보드는 계속 보입니다.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        primary?.let { action ->
+            TextButton(onClick = action.onClick, modifier = Modifier.heightIn(min = AgvSizes.TouchMin)) {
+                Text(action.label)
+            }
+        }
     }
 }
 

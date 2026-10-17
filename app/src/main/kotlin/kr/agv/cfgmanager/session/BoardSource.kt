@@ -1,7 +1,6 @@
 package kr.agv.cfgmanager.session
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kr.agv.cfgmanager.core.bridge.IBridgeChannel
 import kotlin.time.Duration
 
@@ -65,7 +64,8 @@ interface BoardSource {
 
 /**
  * 디버그 빌드의 "가짜 브리지" 설정에 따라 BLE 와 가짜 원천을 고른다.
- * 실기 모드에서는 BLE 행 앞에 USB 행을 붙이고, USB 주소의 채널은 [usb] 가 만든다.
+ * USB 행은 목록 화면이 [usb] 를 따로 훑어 BLE 결과와 합친다 (블루투스가 꺼져도 USB 는 보여야 하므로).
+ * 여기서는 USB 주소의 채널만 [usb] 가 만든다.
  */
 class SwitchingBoardSource(
     private val ble: BoardSource,
@@ -77,11 +77,7 @@ class SwitchingBoardSource(
         get() = useFake()
 
     override fun discover(duration: Duration): Flow<List<BoardRow>> =
-        if (useFake()) {
-            fake.discover(duration)
-        } else {
-            combine(usb.discover(duration), ble.discover(duration)) { wired, wireless -> wired + wireless }
-        }
+        (if (useFake()) fake else ble).discover(duration)
 
     override fun channel(
         address: String,

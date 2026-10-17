@@ -89,11 +89,14 @@ class AppContainer(context: Context) {
 
     private val scanner = BleScanner(adapter)
 
-    /** 디버그 빌드에서 "가짜 브리지" 를 켜면 가짜 원천을 쓴다. 릴리스 빌드에서는 BLE 와 OTG USB 콘솔. */
+    /** OTG 시리얼 콘솔. 블루투스와 상관없이 목록을 찾고 연결한다 (docs/DECISIONS.md, Phase 7). */
+    val usb = UsbBoardSource(appContext, appContext.getSystemService(UsbManager::class.java))
+
+    /** 디버그 빌드에서 "가짜 브리지" 를 켜면 가짜 원천을 쓴다. 릴리스 빌드에서는 BLE 원천이고, USB 행은 [usb] 가 따로 낸다. */
     val boards: BoardSource = SwitchingBoardSource(
         ble = BleBoardSource(appContext, adapter, scanner) { settings.current.responseIdleMs },
         fake = FakeBoardSource(FakeRoster.create()) { System.currentTimeMillis() },
-        usb = UsbBoardSource(appContext, appContext.getSystemService(UsbManager::class.java)),
+        usb = usb,
         useFake = { BuildConfig.DEBUG && settings.current.fakeBridge },
     )
 

@@ -99,3 +99,6 @@
 | 2026-10-17 | USB 로그인 · 목록 | USB 는 로그인을 하지 않는다: 연결 시트에 비밀번호 칸이 없고, 콘솔 기록에 `login` 줄을 남기지 않는다. USB 행은 BLE 스캔 결과 앞에 붙고(`usb:<장치 이름>`), 신호 세기 대신 "USB 직결"로 표시한다 | 계획 3.3 "로그인 없음". 스캔 흐름을 재사용해 보드 탭 구조를 바꾸지 않는다. 블루투스가 꺼져 있으면 스캔이 막혀 USB 행도 안 보인다 (미해결) |
 | 2026-10-17 | USB 권한 · 자동 실행 | 연결할 때 `requestPermission` 으로 권한을 묻고 허용을 기다린다(`PendingIntent` 는 `FLAG_IMMUTABLE`). `device_filter.xml` 로 MainActivity 를 USB 연결 때 연다 | 계획 8.6 |
 | 2026-10-17 | 실기 미검증 (Phase 7) | 빌드 · JVM 테스트만 했다. 실제 OTG 케이블과 보드로 `cfg` · 적용 · `reboot` 뒤 `stat` 을 확인하지 않았다. 계획 11장 Phase 7 완료 기준은 실기에서 확인해야 한다 | 이 PC 에는 보드가 없다 |
+| 2026-10-17 | USB 라이브러리 벤더링 | JitPack 의존성을 없애고 usb-serial-for-android 3.11.0 소스(MIT, `LICENSE.txt`)를 `third_party/usb-serial-for-android` 모듈(`:usbserial`)로 가져왔다. 바꾸지 않는다. 앞선 "JitPack 필요" 결정은 이 행으로 대체된다 | 사내망에서 jitpack.io 가 막힐 수 있다. CLAUDE.md "외부 호스트 의존성 금지" 규칙 |
+| 2026-10-17 | USB 와 블루투스 독립 | 블루투스 권한 · 블루투스 꺼짐 · 위치 꺼짐은 BLE 스캔만 막는다. USB 는 항상 따로 찾는다(목록 화면이 `usb.discover` 와 BLE 결과를 합친다). 블루투스 오류는 목록이 없으면 Error, 목록이 있으면 위 배너로 보인다. `BoardsUi.view` 는 목록 우선 | 현장에서 블루투스를 끄고 OTG 만 쓸 수 있어야 한다 |
+| 2026-10-17 | CH343 지원 보류 | 아직 구현하지 않았다. 보드 칩의 VID:PID 와 인터페이스 클래스를 확인한 뒤 결정한다. CDC 클래스면 기본 표의 CDC-ACM 드라이버가 이미 잡고 `device_filter.xml` 만 고치면 된다. vendor 클래스(0xFF)면 `:usbserial` 에 CH343 드라이버를 추가한다 | 실기 보드 없이 프로토콜을 추측하지 않는다 |

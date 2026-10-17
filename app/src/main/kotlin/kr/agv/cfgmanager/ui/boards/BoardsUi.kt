@@ -42,10 +42,11 @@ data class BoardsUi(
     /** 연속 세팅이 켜져 있을 때 상단 배너 ("다음: 8호기 · 본사 1공장"). */
     val batchBanner: String? = null,
 ) {
+    /** 목록이 있으면 오류는 위 배너로 보인다 (USB 행은 블루투스가 꺼져도 나온다). 목록이 없고 오류면 Error. */
     val view: BoardsView
         get() = when {
-            error != null -> BoardsView.Error
             rows.isNotEmpty() -> BoardsView.Content
+            error != null -> BoardsView.Error
             scanState == ScanState.Scanning -> BoardsView.Loading
             else -> BoardsView.Empty
         }

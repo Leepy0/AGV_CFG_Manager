@@ -11,8 +11,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // usb-serial-for-android 는 Maven Central 에 없다 (docs/DECISIONS.md, Phase 7).
-        maven { url = uri("https://jitpack.io") }
     }
 }
 
@@ -20,3 +18,5 @@ rootProject.name = "AgvCfgManager"
 
 include(":core")
 include(":app")
+include(":usbserial")
+project(":usbserial").projectDir = file("third_party/usb-serial-for-android")

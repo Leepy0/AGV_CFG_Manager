@@ -21,7 +21,7 @@ ESP32-S3 AGV Wi-Fi 브리지의 호기 설정 · 확인 · 진단용 **Android �
 - GATT 연산은 한 번에 하나(`GattQueue`), 명령도 한 번에 하나(`Mutex`). 끊김 뒤에는 항상 `gatt.close()`.
 - 메인 스레드에서 블로킹 I/O 금지. 긴 작업은 코루틴 + 진행 Flow + 취소.
 - 비밀번호 · 사내 IP 를 로그 · 테스트 fixture · 스크린샷에 남기지 않는다(예시 IP 는 `192.168.10.x`). 콘솔 화면에서도 `login` · `set pass` 값은 `***`.
-- 외부 네트워크는 github.com 만 가정한다. `api.github.com` 에 의존하는 코드는 쓰지 않는다.
+- 앱은 사내망 · 외부 네트워크와 무관하게 동작해야 한다. 빌드 의존성은 `google()` · `mavenCentral()` 과 저장소 안(`third_party/`)만 쓴다. JitPack 등 다른 호스트 의존성은 추가하지 않고, 필요하면 소스를 `third_party/` 에 둔다. 런타임에도 외부 호스트에 의존하는 기능을 기본 동작으로 두지 않는다 (업데이트 확인처럼 명시적 기능만 예외).
 - 한국어 UI · 주석 · 문서, 영어 식별자. 색 · 간격 · 글꼴은 `ui/theme` 토큰만 사용. dynamic color 끔, light/dark 모두 정의.
 - 라이브러리 버전은 작업 시점의 stable 을 확인해 `gradle/libs.versions.toml` 에 둔다. Material 3 Expressive 가 alpha 면 쓰지 않는다.
 - 코드 주석 · 커밋에 모델 이름을 넣지 않는다.

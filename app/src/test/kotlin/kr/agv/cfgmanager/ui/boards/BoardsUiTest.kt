@@ -15,12 +15,13 @@ class BoardsUiTest {
     }
 
     @Test
-    fun `목록이 있으면 Content, 오류가 있으면 Error 가 우선한다`() {
+    fun `목록이 있으면 오류가 있어도 Content, 목록이 없고 오류면 Error`() {
         assertEquals(BoardsView.Content, BoardsUi(scanState = ScanState.Done, rows = listOf(row)).view)
         assertEquals(
-            BoardsView.Error,
+            BoardsView.Content,
             BoardsUi(scanState = ScanState.Done, rows = listOf(row), error = ScanError.BluetoothOff).view,
         )
+        assertEquals(BoardsView.Error, BoardsUi(scanState = ScanState.Done, error = ScanError.BluetoothOff).view)
     }
 
     @Test
