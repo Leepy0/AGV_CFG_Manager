@@ -22,3 +22,6 @@ keystore.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Python 캐시 (CI 매니페스트 스크립트를 로컬에서 시험할 때)
+__pycache__/

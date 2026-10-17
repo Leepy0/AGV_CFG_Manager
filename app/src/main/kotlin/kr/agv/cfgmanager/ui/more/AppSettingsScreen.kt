@@ -35,7 +35,7 @@ import kr.agv.cfgmanager.ui.components.SectionTitle
 import kr.agv.cfgmanager.ui.theme.AgvSizes
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
 
-/** 설정 화면 (F-G1): 테마 · 스캔 시간 · 연속 모드 기본 · 응답 유휴 시간 · 업데이트 확인(자리) · 디버그 가짜 브리지. */
+/** 설정 화면 (F-G1): 테마 · 스캔 시간 · 연속 모드 기본 · 응답 유휴 시간 · 업데이트 자동 확인 · 디버그 가짜 브리지. */
 @Composable
 fun AppSettingsScreen(container: AppContainer) {
     val settings by container.settings.settings.collectAsStateWithLifecycle()
@@ -94,7 +94,7 @@ fun AppSettingsScreen(container: AppContainer) {
         SectionTitle("업데이트")
         SwitchRow(
             label = "업데이트 자동 확인",
-            note = "준비 중. 업데이트 기능이 들어오면 이 설정으로 켜고 끕니다.",
+            note = "앱을 연 뒤 3초 뒤 한 번 확인합니다. 실패해도 알리지 않습니다. 끄면 정보 화면에서만 확인합니다.",
             checked = settings.autoUpdateCheck,
             onToggle = { container.settings.update { it.copy(autoUpdateCheck = !it.autoUpdateCheck) } },
         )

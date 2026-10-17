@@ -80,3 +80,15 @@
 | 2026-10-17 | 출장 준비 체크 상태 | 체크리스트 체크 상태는 화면 메모리에만 둔다(저장 · 복원 안 함) | 점검 도구이고 데이터가 아니다. 상태를 저장하면 다음 출장에서 오래된 체크가 남는다 |
 | 2026-10-17 | 연속 세팅 요약 | `BatchState.done` 을 그대로 쓴다(새로 연속 모드를 켜면 비워진다). 공유는 평문 표(호기 · 장치 이름 · 결과)만, 주소와 비밀번호는 없다 | 계획 F-B3 |
 | 2026-10-17 | Phase 5 미이행 | 휴대폰 Wi-Fi 스캔(F-E10, 선택)은 건너뛰었다. F-P7 은 여전히 미구현. 실기 체크 11 은 미검증 | 시간 대비 범위. Phase 6 이나 후속 단계에서 다룬다 |
+| 2026-10-17 | 업데이트 코드 위치 | 순수 로직(매니페스트 · 버전 · 폴백 · 받기 · 상태 기계)은 `:core` 의 `update/`, HTTP 는 `HttpUrlUpdateHttp`(HttpURLConnection, github.com 주소만 허용), 설치 인텐트 · FileProvider 는 `app/update/`. 계획 6.1 의 `net/Updater.kt` 와 OkHttp 는 쓰지 않음 | 로직은 :core 에 두어 JVM 에서 검사한다(CLAUDE.md). 의존성을 늘리지 않는다 |
+| 2026-10-17 | 업데이트 채널 | 자동 · 수동 확인은 모든 채널에서 돈다. dev · local 빌드는 "dev 빌드는 정식으로 덮어 설치됩니다" 안내를 붙이고, 대상은 항상 정식 릴리스(`releases/latest`)다 | 계획 12장(dev 는 정식만 받음)과 실기 12(dev → release)를 함께 만족. 계획 문장이 다르게 읽히면 이 줄을 고친다 |
+| 2026-10-17 | 자동 확인 알림 | 시작 3초 뒤 1회 확인. 새 버전이면 스낵바 "업데이트 있음: x.y.z" 한 줄(상단 칩 대신). 실패는 화면에 아무것도 내지 않고 로그(`업데이트`)만 남긴다 | 현장 작업 화면을 방해하지 않는다. 계획 7.5 의 "조용히" 를 따른다 |
+| 2026-10-17 | 받기 방식 | 이어받기 없이 처음부터 받는다. `cache/updates/AgvCfgManager.apk.partial` → sha256(과 크기) 검사 → 이름 변경. 실패 · 취소하면 partial 을 지운다. sha256 이 없는 폴백 결과는 앱에서 받지 않고 브라우저로 안내한다 | 구현을 단순하게 둔다. 검증 없는 APK 설치를 막는다 |
+| 2026-10-17 | 설치 권한 | `REQUEST_INSTALL_PACKAGES` 를 선언한다. 허용이 꺼져 있으면 [설치] 대신 `ACTION_MANAGE_UNKNOWN_APP_SOURCES` 화면을 열고 다시 누르라고 안내한다. `file_paths.xml` 에 `cache/updates/` 를 추가했다 | 계획 7.5 의 설치 흐름. 권한은 설치 직전에만 쓴다 |
+| 2026-10-17 | 릴리스 서명 | `signingConfigs.release` 는 `KEYSTORE_FILE` · `KEYSTORE_PASSWORD` · `KEY_ALIAS` · `KEY_PASSWORD` 가 모두 있을 때만 적용한다. 없으면 서명하지 않은 release 를 만든다. `isMinifyEnabled=false` 는 유지 | 로컬 빌드를 깨지 않는다. 축소 · 난독화는 ZXing · Keystore 를 실기 검증한 뒤 켠다 |
+| 2026-10-17 | 정식 릴리스 CI | 태그 `v*.*.*` 푸시 또는 `workflow_dispatch` 의 `release=true`. 태그(또는 기본 versionName)가 `app/build.gradle.kts` 기본 versionName 과 다르면 실패하고, secrets 가 없으면 빌드 전에 실패한다. 매니페스트는 `.github/scripts/release_manifest.py` 가 만든다 | 계획 12장. 스크립트를 파일로 둔 이유: YAML 안의 heredoc 들여쓰기 문제를 피하고, 같은 입력으로 로컬에서 시험하려고 |
+| 2026-10-17 | 릴리스 노트 | 자동 노트는 이전 버전 태그 이후 커밋의 제목 목록이다. `Co-Authored-By` · `Claude-Session` 줄은 뺀다. 계획의 "사용자 관점 한글 3~6줄" 은 릴리스 본문에서 손으로 고친다 | 자동화 우선. 사람이 고친 요약은 릴리스 편집으로 충분하다 |
+| 2026-10-17 | dev 프리릴리스 서명 | 서명 secrets 가 있으면 release 키로 서명한 APK, 없으면 디버그 키 APK 를 `dev` 로 올린다(노트에 표시). 계획 12장의 `assembleRelease -Pchannel=dev` 와 다르다 | 미서명 APK 는 설치할 수 없다. secrets 등록 전에도 main 시험 빌드를 받게 한다 |
+| 2026-10-17 | 최소 SDK 검사 | 매니페스트 `minSdk` 가 기기 SDK 보다 높으면 [받기] 대신 "설치할 수 없습니다" 를 보인다 | 설치가 실패하기 전에 막는다(현재 minSdk 26) |
+| 2026-10-17 | 패키지명 확정 보류 | 패키지명은 여전히 `kr.agv.cfgmanager`(임시). 정식 `v0.1.0` 전에 확정한다는 14장 7 은 미해결이다 | 이번 단계에서 정하지 않는다. 바꾸면 기존 설치본 업데이트가 깨진다 |
+| 2026-10-17 | 정식 릴리스 미실행 | `v0.1.0` 태그와 릴리스는 만들지 않았다(서명 secrets 없음). 절차는 README "릴리스" 절에 적었다 | 사용자 지시. 키는 저장소 밖 담당자가 보관한다 |

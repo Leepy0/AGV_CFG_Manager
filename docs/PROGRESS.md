@@ -1,6 +1,6 @@
 # 진행 기록
 
-마지막 갱신: 2026-10-17 · 브랜치 `ccr-558b4c2a-30eszy` · 기준 브리지 0.5.5
+마지막 갱신: 2026-10-17 (Phase 6 완료) · 브랜치 `ccr-558b4c2a-30eszy` · 기준 브리지 0.5.5
 
 ## 진행 방식
 
@@ -22,14 +22,18 @@ LANG=C.UTF-8 LC_ALL=C.UTF-8 ./gradlew :core:test :app:testDebugUnitTest :app:ass
 | 3 | 설정 폼 · 적용 워크플로(진행 패널 · 결과 카드) · 이력 저장 · `withExclusive` · `reboot()` | dbfb71e | 135 / 78 | 완료 |
 | 4 | 프로필(CRUD · IP 규칙 · 내보내기/가져오기 · 휴대폰 Wi-Fi 에서 가져오기) · SSID 라이브러리(Keystore 암호화) · 자동 채움 · 연속 세팅 · 이력 탭 | 341b1b4 | 154 / 102 | 완료 |
 | 5 | 빠른 명령 · 게이트웨이 도달 확인 · 공장 초기화 · QR · 앱 설정 · 로그 파일 · 정보 · 출장 준비 · 세션 요약 · NavigationSuiteScaffold | 156301b | 163 / 125 | 완료 |
-| 6 | 앱 내 업데이트(Updater) · 릴리스 서명 · 정식 릴리스 CI · README 사용법 | (진행 중) | – | **에이전트 작업 중** — 아래 "Phase 6 현황" |
+| 6 | 앱 내 업데이트(매니페스트 · 폴백 · 받기 · sha256 · 설치) · 릴리스 서명 · 정식 릴리스 CI · README 사용법 | 이 Phase 커밋 | 213 / 125 | 완료 (실기 12 미검증) |
 | 7 | USB OTG 시리얼 (선택) | – | – | 미착수 |
 
 전 Phase 에서 `allWarningsAsErrors=true` 로 경고 0, `:app:assembleDebug` 성공. 모든 테스트는 JVM(가짜 브리지)이며 **실기 · 에뮬레이터 검증은 하나도 하지 않았습니다**.
 
 ## Phase 6 현황
 
-Phase 6 에이전트에 맡긴 범위: `Updater`(github.com 매니페스트 → APK 다운로드 → sha256 → 설치 인텐트, `releases/latest` 리다이렉트 폴백, api.github.com 금지), 정보 화면 [지금 확인] · 시작 3초 뒤 자동 확인, `REQUEST_INSTALL_PACKAGES`, `signingConfigs.release`(secrets 있을 때만), CI 정식 릴리스 경로(태그/`workflow_dispatch release=true`, 자산 `AgvCfgManager.apk` · `.sha256` · `.json`), README 사용법. 작업 트리에 `core/src/main/.../core/update/` 가 생성된 것까지 확인됨. 완료되면 이 절을 갱신하고 커밋을 푸시합니다. 완료 전에 세션이 끊기면: 작업 트리의 미커밋 변경을 확인(`git status`)하고 Phase 6 범위(계획서 11장 Phase 6, 7.5, 12장)를 이어서 진행하면 됩니다.
+- 구현: `:core` `update/`(매니페스트 · 버전 · `releases/latest` 태그 폴백 · 받기 · 상태 기계, 테스트 50개), `:app` `update/`(HttpURLConnection · FileProvider 설치 · 알 수 없는 앱 설치 안내), 정보 화면 업데이트 섹션, 시작 3초 뒤 자동 확인(스낵바 한 줄), 설정 "준비 중" 제거.
+- 서명: `KEYSTORE_FILE` 등 네 값이 모두 있을 때만 release 서명. 미서명 release 빌드 성공. 임시 테스트 키로 서명 빌드 후 `apksigner verify` 통과(키는 저장소 밖).
+- CI: PR · main 은 테스트 + 디버그 빌드, main 은 dev 프리릴리스(secrets 없으면 디버그 키), `v*.*.*` 태그 또는 `release=true` 는 정식 Release(`AgvCfgManager.apk` · `.sha256` · `.json`). 매니페스트 생성 스크립트는 임시 git 저장소에서 시험했다. **워크플로 자체는 GitHub 에서 아직 한 번도 돌지 않았다.**
+- 정식 `v0.1.0` 은 만들지 않았다(secrets 없음). 절차는 README "릴리스" 절. 계획과 다른 점은 계획서 11장 "현황" 과 DECISIONS.md.
+- 남은 결정: 패키지명 확정(계획 14장 7, 정식 릴리스 전 필수). 본사 프로필 값(14장 5).
 
 ## 계획서에서 소스 기준으로 정정한 것 (Phase 1)
 
@@ -41,7 +45,7 @@ Phase 6 에이전트에 맡긴 범위: `Updater`(github.com 매니페스트 → 
 
 ## 미구현 · 보류
 
-- F-E10 휴대폰 Wi-Fi 스캔, F-P7 프로필별 요약, Phase 7 USB OTG.
+- F-E10 휴대폰 Wi-Fi 스캔, F-P7 프로필별 요약, F-W3 생체 인증 비밀번호 보기, F-W4 브리지 Wi-Fi 스캔(BR-4 대기), Phase 7 USB OTG.
 - BR-1(`cfg json`) 경로는 폴백 구조만(브리지 미반영).
 - 디자인 체크리스트 부분 미달: 출장 준비 · 정보 화면의 로딩/빈 상태, 게이트웨이 확인 · 공장 초기화의 진행 표시.
 - 프로필의 BLE 비밀번호는 `profiles.json` 에 평문(계획 B-1 대로). Keystore 로 감쌀지 결정 필요.

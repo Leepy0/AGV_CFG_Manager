@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="share" path="share/" />
+    <!-- 업데이트 APK (cache/updates/AgvCfgManager.apk). 설치 인텐트에만 쓴다. -->
+    <cache-path name="updates" path="updates/" />
 </paths>

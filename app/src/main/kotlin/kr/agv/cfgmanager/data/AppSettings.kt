@@ -9,7 +9,7 @@ enum class ThemeMode { System, Light, Dark }
  */
 data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.System,
-    /** 자동 업데이트 확인. 자리만 있고 Phase 6 의 업데이트 기능과 함께 연결된다. */
+    /** 시작 3초 뒤 업데이트 자동 확인. 끄면 정보 화면의 [지금 확인] 으로만 확인한다. */
     val autoUpdateCheck: Boolean = true,
     /** 보드 찾기 스캔 시간 (초). 5 ~ 30, 5 단위. */
     val scanSeconds: Int = DEFAULT_SCAN_SECONDS,

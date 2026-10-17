@@ -3,10 +3,16 @@ package kr.agv.cfgmanager
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import kr.agv.cfgmanager.apply.ApplyRunner
 import kr.agv.cfgmanager.apply.FactoryResetRunner
 import kr.agv.cfgmanager.batch.BatchController
@@ -17,6 +23,11 @@ import kr.agv.cfgmanager.prefill.FormPrefill
 import kr.agv.cfgmanager.ble.BleBoardSource
 import kr.agv.cfgmanager.ble.BlePreflightProbe
 import kr.agv.cfgmanager.ble.BleScanner
+import kr.agv.cfgmanager.core.update.BuildInfo
+import kr.agv.cfgmanager.core.update.UpdateChecker
+import kr.agv.cfgmanager.core.update.UpdateController
+import kr.agv.cfgmanager.core.update.UpdateDownloader
+import kr.agv.cfgmanager.core.update.UpdateState
 import kr.agv.cfgmanager.data.HistoryStore
 import kr.agv.cfgmanager.data.PrefsStringStore
 import kr.agv.cfgmanager.data.SettingsStore
@@ -26,6 +37,8 @@ import kr.agv.cfgmanager.session.BridgeSession
 import kr.agv.cfgmanager.session.FakeBoardSource
 import kr.agv.cfgmanager.session.FakeRoster
 import kr.agv.cfgmanager.session.SwitchingBoardSource
+import kr.agv.cfgmanager.update.HttpUrlUpdateHttp
+import kr.agv.cfgmanager.update.UpdateActions
 import java.io.File
 
 /**
@@ -42,6 +55,29 @@ class AppContainer(context: Context) {
 
     /** 앱 로그 (`filesDir/logs/app-YYYYMMDD.log`, 7일 보관). */
     val log = AppLog(File(appContext.filesDir, LOG_DIR))
+
+    /** 앱 내 업데이트 상태 (정보 화면 · 시작 때 자동 확인). APK 는 `cache/updates/` 에 받는다. */
+    val updates = UpdateController(
+        checker = UpdateChecker(HttpUrlUpdateHttp),
+        downloader = UpdateDownloader(HttpUrlUpdateHttp, File(appContext.cacheDir, UPDATE_DIR)),
+        build = BuildInfo(
+            versionCode = BuildConfig.VERSION_CODE,
+            channel = BuildConfig.CHANNEL,
+            deviceSdk = Build.VERSION.SDK_INT,
+        ),
+        journal = { log.info("업데이트", it) },
+    )
+
+    /** 정보 화면이 부르는 확인 · 받기 · 취소 (앱 수명 scope 에서 돈다). */
+    val updateActions = UpdateActions(updates, appScope)
+
+    private val updateNoticeFlow = MutableSharedFlow<String>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /** 자동 확인이 새 버전을 찾았을 때 한 줄 알림. 화면이 스낵바로 보인다. */
+    val updateNotices: SharedFlow<String> = updateNoticeFlow.asSharedFlow()
 
     private val adapter: BluetoothAdapter? = appContext
         .getSystemService(BluetoothManager::class.java)
@@ -103,6 +139,16 @@ class AppContainer(context: Context) {
             profiles.load()
             networks.load()
         }
+        // 시작 3초 뒤 1회 자동 확인 (설정 autoUpdateCheck). 실패는 조용히 로그만 남긴다.
+        appScope.launch {
+            delay(AUTO_CHECK_DELAY_MS)
+            if (settings.current.autoUpdateCheck) {
+                val state = updates.check(silent = true)
+                if (state is UpdateState.Available) {
+                    updateNoticeFlow.tryEmit("업데이트 있음: ${state.release.version}")
+                }
+            }
+        }
     }
 
     /** 현재 연결 방식이 가짜인지 (화면 문구 · 권한 검사 건너뛰기). */
@@ -113,5 +159,7 @@ class AppContainer(context: Context) {
         const val PROFILE_FILE = "profiles.json"
         const val NETWORK_FILE = "networks.json"
         const val LOG_DIR = "logs"
+        const val UPDATE_DIR = "updates"
+        const val AUTO_CHECK_DELAY_MS = 3_000L
     }
 }

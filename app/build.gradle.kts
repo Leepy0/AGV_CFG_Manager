@@ -14,6 +14,18 @@ val appVersionCode: Int = providers.gradleProperty("versionCode").orElse("100").
 // 커밋 식별자 (정보 화면). CI 는 -PsourceRevision=<짧은 sha> 를 넘긴다. 로컬 빌드는 "local".
 val appRevision: String = providers.gradleProperty("sourceRevision").orElse("local").get()
 
+// 릴리스 서명 (docs/DEVELOPMENT_PLAN.md 12장). -P 나 환경변수로 넘긴다. 하나라도 없으면 서명하지 않은 release 를 만든다.
+// 로컬 빌드는 실패하지 않는다. CI 는 GitHub Secrets 를 KEYSTORE_FILE 등 환경변수로 넘긴다.
+fun signingValue(name: String): String? =
+    providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
+
+val releaseKeystore: String? = signingValue("KEYSTORE_FILE")
+val releaseStorePassword: String? = signingValue("KEYSTORE_PASSWORD")
+val releaseKeyAlias: String? = signingValue("KEY_ALIAS")
+val releaseKeyPassword: String? = signingValue("KEY_PASSWORD")
+val releaseSigningReady: Boolean = listOf(releaseKeystore, releaseStorePassword, releaseKeyAlias, releaseKeyPassword)
+    .all { it != null }
+
 android {
     namespace = "kr.agv.cfgmanager"
     compileSdk = 35
@@ -33,10 +45,24 @@ android {
         buildConfig = true
     }
 
+    signingConfigs {
+        if (releaseSigningReady) {
+            create("release") {
+                storeFile = file(releaseKeystore!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // 축소 · 난독화는 ZXing 과 Keystore 검증을 실기로 확인하기 전까지 끈다 (docs/DECISIONS.md).
             isMinifyEnabled = false
-            // 릴리스 서명(keystore 는 GitHub Secrets)은 Phase 6 에서 추가한다.
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

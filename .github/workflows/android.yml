@@ -3,11 +3,14 @@ name: android
 on:
   push:
     branches: [main]
+    tags: ['v*.*.*']
   pull_request:
   workflow_dispatch:
-  # Phase 6: 태그 v*.*.* 푸시 또는 workflow_dispatch(release=true) 로 정식 릴리스 경로를 추가한다.
-  #   release 채널 빌드 → 릴리스 keystore 서명(GitHub Secrets) → AgvCfgManager.apk / .sha256 / .json 매니페스트 → Release 생성.
-  #   docs/DEVELOPMENT_PLAN.md 12장 참고. 여기서는 자리만 둔다.
+    inputs:
+      release:
+        description: '정식 릴리스 만들기 (app/build.gradle.kts 기본 versionName 으로 v<버전> 태그에 Release)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -17,6 +20,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # (a) 모든 PR · 푸시: JVM 테스트와 디버그 APK 컴파일. 실패하면 뒤 작업을 돌리지 않는다.
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -42,26 +46,207 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Test and build debug APK
-        run: ./gradlew :core:test :app:assembleDebug -Pchannel=dev -PsourceRevision=${GITHUB_SHA::7}
+        run: ./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug -PsourceRevision=${GITHUB_SHA::7}
 
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
-          path: core/build/reports/tests/
+          path: |
+            core/build/reports/tests/
+            app/build/reports/tests/
           if-no-files-found: ignore
 
+  # (b) main 푸시: dev 채널 APK 를 dev prerelease 로 덮어쓴다. 서명 secrets 가 있으면 release 키로 서명하고,
+  #     없으면 디버그 키로 서명한 APK 를 올린다 (그 APK 는 정식 APK 로 덮어 설치되지 않는다).
+  dev:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build dev APK
+        id: build
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            KEYSTORE_FILE="$RUNNER_TEMP/release.keystore" ./gradlew :app:assembleRelease -Pchannel=dev -PsourceRevision=${GITHUB_SHA::7}
+            cp app/build/outputs/apk/release/app-release.apk AgvCfgManager-dev.apk
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            ./gradlew :app:assembleDebug -Pchannel=dev -PsourceRevision=${GITHUB_SHA::7}
+            cp app/build/outputs/apk/debug/app-debug.apk AgvCfgManager-dev.apk
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish dev prerelease
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.build.outputs.signed }}
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk AgvCfgManager-dev.apk
+          NOTE="main 커밋 ${GITHUB_SHA::7} 의 dev 빌드입니다. 정식 릴리스가 아닙니다."
+          if [ "$SIGNED" != "true" ]; then
+            NOTE="$NOTE 서명 secrets 가 없어 디버그 키로 서명했습니다. 정식 APK 로 덮어 설치할 수 없습니다."
+          fi
           # 같은 이름의 dev 릴리스와 태그를 지운 뒤 다시 만든다 (prerelease 는 Latest 로 올라가지 않는다).
           gh release delete dev --cleanup-tag --yes || true
           gh release create dev AgvCfgManager-dev.apk \
             --prerelease \
             --target "$GITHUB_SHA" \
-            --title "dev (main 최신 디버그 빌드)" \
-            --notes "main 커밋 ${GITHUB_SHA::7} 의 디버그 빌드입니다. 정식 릴리스가 아닙니다."
+            --title "dev (main 최신 빌드)" \
+            --notes "$NOTE"
+
+  # (c) 정식 릴리스: 태그 v*.*.* 푸시 또는 workflow_dispatch(release=true).
+  #     태그(또는 기본 versionName)와 build.gradle.kts 의 기본 versionName 이 같아야 한다. 서명 secrets 가 없으면 실패한다.
+  release:
+    needs: build
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && inputs.release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout (full history for release notes)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check release signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          missing=""
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=서명 secrets 없음::정식 릴리스에는 release keystore 가 필요합니다. 저장소 Settings > Secrets and variables > Actions 에 다음을 등록하세요:$missing (README 의 '릴리스' 절 참고)"
+            exit 1
+          fi
+
+      - name: Resolve version from tag
+        id: version
+        run: |
+          DEFAULT=$(sed -n 's/.*gradleProperty("versionName")\.orElse("\([^"]*\)").*/\1/p' app/build.gradle.kts)
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG="v$DEFAULT"
+          fi
+          if ! [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::태그는 vX.Y.Z 형식이어야 합니다: $TAG"
+            exit 1
+          fi
+          MAJOR=${BASH_REMATCH[1]}; MINOR=${BASH_REMATCH[2]}; PATCH=${BASH_REMATCH[3]}
+          VERSION="$MAJOR.$MINOR.$PATCH"
+          if [ "$VERSION" != "$DEFAULT" ]; then
+            echo "::error::태그 $TAG 의 버전($VERSION) 과 app/build.gradle.kts 기본 versionName($DEFAULT) 이 다릅니다. 둘을 맞춘 뒤 다시 실행하세요."
+            exit 1
+          fi
+          if [ "$MINOR" -gt 99 ] || [ "$PATCH" -gt 99 ]; then
+            echo "::error::Y 와 Z 는 0~99 여야 합니다 (versionCode 공식): $VERSION"
+            exit 1
+          fi
+          CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "code=$CODE"
+          } >> "$GITHUB_OUTPUT"
+          echo "릴리스: $TAG (versionName $VERSION, versionCode $CODE)"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build signed release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          KEYSTORE_FILE="$RUNNER_TEMP/release.keystore" ./gradlew :core:test :app:testDebugUnitTest :app:assembleRelease \
+            -Pchannel=release \
+            -PversionName=${{ steps.version.outputs.version }} \
+            -PversionCode=${{ steps.version.outputs.code }} \
+            -PsourceRevision=${GITHUB_SHA::7}
+          rm -f "$RUNNER_TEMP/release.keystore"
+
+      - name: Rename APK, checksum, and manifest
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.code }}
+          REPO: ${{ github.repository }}
+          NOTES_OUT: ${{ runner.temp }}/release-notes.md
+        run: |
+          set -euo pipefail
+          cp app/build/outputs/apk/release/app-release.apk AgvCfgManager.apk
+          sha256sum AgvCfgManager.apk > AgvCfgManager.apk.sha256
+          python3 .github/scripts/release_manifest.py \
+            --version "$VERSION" \
+            --code "$VERSION_CODE" \
+            --tag "$TAG" \
+            --sha "$GITHUB_SHA" \
+            --repo "$REPO" \
+            --notes-out "$NOTES_OUT"
+          cat AgvCfgManager.apk.sha256
+          test -s AgvCfgManager.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          body_path: ${{ runner.temp }}/release-notes.md
+          target_commitish: ${{ github.sha }}
+          files: |
+            AgvCfgManager.apk
+            AgvCfgManager.apk.sha256
+            AgvCfgManager.json
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+          make_latest: true

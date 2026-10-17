@@ -20,6 +20,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -85,6 +86,11 @@ fun AppRoot(container: AppContainer) {
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val notify: (String) -> Unit = { text -> scope.launch { snackbar.showSnackbar(text) } }
+
+    // 시작 때 자동 확인에서 새 버전을 찾으면 한 줄로 알린다 (F-G3). 실패는 알리지 않는다.
+    LaunchedEffect(Unit) {
+        container.updateNotices.collect { text -> notify(text) }
+    }
 
     val openTab: (TopLevelDestination) -> Unit = { destination ->
         // 보드 탭으로 돌아가면 연속 세팅은 읽은 보드를 버리고 목록 상태로 간다 (7.3).
