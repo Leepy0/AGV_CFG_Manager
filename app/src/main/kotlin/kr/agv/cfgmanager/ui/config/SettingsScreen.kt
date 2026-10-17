@@ -184,7 +184,9 @@ private fun FormBody(
         ConfigInput(ui, vm, ConfigKey.IP, "IP", editable && draft.ipMode == IpMode.Manual, KeyboardType.Decimal, device = deviceText(ui, ConfigKey.IP))
         ui.ruleMismatchIp?.let { ruleIp ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                NoticeLine("규칙과 다름 · 규칙값 $ruleIp", isError = false)
+                Box(modifier = Modifier.weight(1f)) {
+                    NoticeLine("규칙과 다름 · 규칙값 $ruleIp", isError = false)
+                }
                 TextButton(
                     onClick = { vm.useRuleIp() },
                     enabled = editable,
@@ -345,7 +347,15 @@ private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolea
                 enabled = editable,
                 modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
             ) { Text("+", style = MaterialTheme.typography.titleLarge) }
-            Spacer(modifier = Modifier.weight(1f))
+        }
+        // [장치값으로] 는 숫자 줄에 두면 좁아서 글자가 세로로 쪼개진다. 장치 값 줄의 오른쪽에 둔다.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "장치: ${deviceText(ui, ConfigKey.AGV)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
             if (ui.device != null) {
                 TextButton(
                     onClick = { vm.resetToDevice() },
@@ -354,15 +364,12 @@ private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolea
                 ) { Text("장치값으로") }
             }
         }
-        Text(
-            "장치: ${deviceText(ui, ConfigKey.AGV)}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         ui.nextAgvHint?.let { hint ->
             if (hint.toString() != agvText) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    NoticeLine("이 프로필의 다음 번호 제안: ${"%02d".format(hint)}호기", isError = false)
+                    Box(modifier = Modifier.weight(1f)) {
+                        NoticeLine("이 프로필의 다음 번호 제안: ${"%02d".format(hint)}호기", isError = false)
+                    }
                     TextButton(
                         onClick = { vm.setAgvHint(hint) },
                         enabled = editable,
