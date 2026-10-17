@@ -10,6 +10,9 @@ coroutines = "1.10.2"
 junit = "5.14.3"
 zxing = "4.3.0"
 annotation = "1.10.0"
+androidx-test-core = "1.6.1"
+androidx-test-runner = "1.6.2"
+androidx-test-ext = "1.2.1"
 
 [libraries]
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
@@ -32,6 +35,9 @@ junit-platform-launcher = { group = "org.junit.platform", name = "junit-platform
 androidx-compose-material3-adaptive-navigation-suite = { group = "androidx.compose.material3", name = "material3-adaptive-navigation-suite" }
 zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version.ref = "zxing" }
 androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "annotation" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidx-test-core" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidx-test-runner" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
