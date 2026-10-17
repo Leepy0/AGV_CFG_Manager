@@ -1,0 +1,7 @@
+wifi: UP mac=a1:b2:c3:d4:a1:b2 ip=192.168.10.107 rssi=-55 ch=6 bssid=11:22:33:44:55:66
+net : tx=1234 tx_err=0 tx_offline=0 rx=56 rx_bad=0 rx_foreign=0 disc=0 last_reason=0
+setup: on name=AGVBR-07-A1B2 ble=connected
+dsp : app=1.0.3 boot=1.1.0 build=2026-10-01 state=idle staged=-(job 0) pan=?
+main: rx_frm=120 rx_B=3600 tx_frm=118 tx_B=3540 ovf=0 err=0 long=0 no_etx=0 resync=0 tx_drop=0
+rfid: rx_frm=3 rx_B=45 tx_frm=0 tx_B=0 ovf=0 err=0 long=0 no_etx=0 resync=0 tx_drop=0
+heap: 212345

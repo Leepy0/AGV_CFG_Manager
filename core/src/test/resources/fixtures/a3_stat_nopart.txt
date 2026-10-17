@@ -1,0 +1,5 @@
+fw=0.5.5 part=ota_0 ota=valid cfg=saved
+wifi: UP mac=a1:b2:c3:d4:a1:b2 ip=192.168.10.107 rssi=-52 ch=6 bssid=11:22:33:44:55:66
+net : tx=1234 tx_err=0 tx_offline=0 rx=56 rx_bad=0 rx_foreign=0 disc=0 last_reason=0
+setup: off name=AGVBR-07-A1B2
+dsp : app=? boot=? build=? state=nopart (USB reflash needed) staged=-(job 0) pan=?

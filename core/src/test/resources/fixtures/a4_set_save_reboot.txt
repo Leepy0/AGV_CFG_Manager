@@ -1,0 +1,5 @@
+ok ssid - 'save' then 'reboot' to apply
+invalid key or value: agv
+ok pass - 'save' then 'reboot' to apply
+saved - 'reboot' to apply
+rebooting

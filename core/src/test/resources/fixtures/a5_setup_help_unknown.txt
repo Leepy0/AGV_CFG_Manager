@@ -1,0 +1,4 @@
+setup: on name=AGVBR-07-A1B2 ble=connected
+setup: on name=AGVBR-07-A1B2 ble=connected (closing)
+cfg | set <key> <value> | save | reboot | stat | setup [on|off] | dsp [ver|apply] | defaults
+unknown command 'foo' - type help

@@ -1,0 +1,7 @@
+agv=3 ssid="본사 1공장 WIFI" pass=(12 chars)
+ip=192.168.10.103 mask=255.255.255.0 gw=192.168.10.1
+dns=192.168.10.1 dns2=auto
+server=192.168.10.10:50000 local_port=50000
+rfid_dst=255.255.255.255:50001
+main_baud=115200 rfid_baud=9600 hb_ms=1000
+state=saved

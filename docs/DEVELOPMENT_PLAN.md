@@ -136,7 +136,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 
 출처: 브리지 저장소 `main/app_config.c`(검증 규칙), `main/cmd.c`(BLE · UDP 공용 명령), `main/setup_ble.c`(BLE 전송), `main/setup.c`(설정 모드 · 로그인), `main/console_cmd.c`(USB 콘솔), `main/net_bridge.c`(stat 줄), `docs/FLASH_GUIDE.md`(굽기 · 문제 해결). 이 환경에서는 `../AGV_Wifi_Bridge` 에 체크아웃돼 있습니다.
 
-### 3.1 설정 키 (17개)
+### 3.1 설정 키 (16개)
 
 브리지의 `set <key> <value>` 키와 검증 규칙입니다. 앱의 `ConfigValidator` 는 이 표를 **그대로** 구현합니다 (`app_config.c` 의 `apply()`).
 
@@ -159,7 +159,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 | `rfid_baud` | RFID 리더 보드레이트 | 1200~1000000 | 9600 | 전부 | ○ |
 | `hb_ms` | heartbeat 주기 ms | `0`(끔) 또는 100~2000 | 1000 | 전부 | ○ (기본 1000 고정 권장) |
 
-- IP 는 **앞자리 0 없는 10진 표기**만 받습니다 (`192.168.010.1` 거부). 각 옥텟 0~255.
+- IP 는 10진 dotted-quad 입니다. **브리지 `apply()` 는 `sscanf("%3u.…")` 로 읽어 앞자리 0 (`192.168.010.1`) 을 받아들입니다**(10진 해석이라 값이 바뀌지 않음). 앱 `ConfigValidator` 는 입력 실수를 막으려고 앞자리 0 을 거부합니다(앱 정책). 각 옥텟 0~255. 되읽기는 값으로 비교하므로 어긋나지 않습니다.
 - `set` 은 **편집 사본**만 바꿉니다. `save` 로 NVS 에 쓰고 **재부팅해야 적용**됩니다. 편집 사본은 재부팅하면 사라집니다(저장 전이면 아무 영향 없음).
 - 편집 사본을 되돌리는 명령은 **없습니다** (변경 요청 BR-3). 그때까지 앱은 "실패하면 그냥 `save` 를 보내지 않는다" 로 안전합니다.
 - BLE 의 `save` 는 **즉시 확정**(현장 저장)이며, 서버 원격이 남긴 확인 대기(trial)도 취소합니다.
@@ -171,7 +171,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 | 광고 조건 | **설정 모드가 열려 있을 때만** BT 컨트롤러를 켜고 광고. 닫히면 보이지 않음 |
 | 설정 모드 열림 | 저장 설정 없이 부팅(첫 설치, `defaults` 뒤) · **BOOT 버튼(GPIO0) 3초** · USB 콘솔/서버 원격 `setup on` · **BLE 에서 `reboot` 한 직후**(재부팅 뒤 다시 열림) |
 | 닫힘 | `setup off` · 휴대폰 연결 없이 **Wi-Fi 연결 상태로 5분** · 콘솔/전원 재부팅(저장 설정 있을 때). Wi-Fi 미연결이면 유일한 경로라 닫지 않음 |
-| 광고 이름 | `AGVBR-<호기 2자리>-<STA MAC 끝 4자리 대문자 hex>` 예 `AGVBR-07-A1B2`. 광고 패킷에 Flags + 이름, 스캔 응답에 NUS 서비스 UUID. 광고 간격 100~150ms |
+| 광고 이름 | `AGVBR-<호기 2자리>-<STA MAC 끝 2바이트 4자리 대문자 hex>` 예 MAC `…:d4:a1:b2` 이면 `AGVBR-07-A1B2` (펌웨어 `setup_prepare_wifi()` 가 `mac[4]`,`mac[5]` 를 씀).  광고 패킷에 Flags + 이름, 스캔 응답에 NUS 서비스 UUID. 광고 간격 100~150ms |
 | BLE 주소 | 공개 주소(public). 재부팅해도 같음 → **재연결은 이름이 아니라 주소로** (호기 번호가 바뀌면 이름이 바뀜) |
 | 서비스 UUID | `6E400001-B5A3-F393-E0A9-E50E24DCCA9E` |
 | RX (앱 → ESP) | `6E400002-…` Write / Write Without Response. 수신 누적 버퍼 **256B**(넘치면 버림) |
@@ -179,7 +179,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 | 연결 | **1대만**(두 번째 휴대폰은 연결 불가). 페어링 · 본딩 없음(앱 수준 비밀번호). 연결 직후 브리지가 연결 간격 45~75ms · supervision 4초를 요청 |
 | 환영 문구 | notify 구독이 감지되면 1회: `AGV Wi-Fi Bridge AGVBR-07-A1B2 (fw 0.5.5)\r\nlogin <password>\r\n` (빌드에 비밀번호가 없으면 둘째 줄 `type help`). **이름 · fw 는 여기서 파싱** |
 | 로그인 | `login agvsetup`(빌드 기본값, 프로필에 보관) → `ok - type help`. 틀리면 **1초 뒤** `wrong password`. **같은 연결에서 5회 연속 실패 시** `wrong password - too many failures, disconnecting` 후 끊김(다시 연결하면 재시도 가능). 로그인 전 명령 → `login required: login <password>`. 연결마다 다시 로그인 |
-| 줄 처리(입력) | CR · LF · CRLF 모두 줄 끝. 줄바꿈 없이 끝난 입력은 마지막 수신 **0.3초 뒤** 한 줄로 처리. 빈 줄은 무시. 한 줄 최대 200자 |
+| 줄 처리(입력) | CR · LF · CRLF 모두 줄 끝. 줄바꿈 없이 끝난 입력은 마지막 수신 **0.3초 뒤** 한 줄로 처리. 빈 줄은 무시. 한 줄은 **199바이트**까지 (브리지 `sble_take_line` 이 `CMD_LINE_MAX`(200) − NUL 로 잘라 넘치는 값은 조용히 깨짐). |
 | 값 인용 | **따옴표 없음.** `set <key> <value>` 의 값은 **줄 끝까지**(공백 포함). 앞뒤 공백은 잘림 |
 | 응답 | 명령마다 결과 텍스트 1덩어리(최대 600B)를 MTU 청크로 연속 송신. **응답 끝 표시가 없음** → 앱은 "첫 청크 뒤 250ms 동안 새 청크 없음" 또는 명령별 종료 규칙(3.2.1)으로 끝을 판정, 최대 3초. 변경 요청 BR-8 |
 | 명령 집합 (`cmd.c`, `CMD_SRC_LOCAL`) | `cfg` · `set` · `save`(즉시 확정) · `defaults`(가능) · `reboot` · `stat` · `setup [on\|off]` · `dsp [ver\|apply]` · `help`. **`log` · `mon` · `ota` 는 콘솔 전용** |
@@ -196,7 +196,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 | `defaults` | `saved config erased - 'reboot' to use build defaults` / `erase failed: …` | 한 줄 |
 | `reboot` | `rebooting` / `busy: mainboard programming - reboot refused, retry when done` | 한 줄, 이후 끊김 |
 | `stat` | 1줄 `fw=0.5.5 part=ota_0 ota=valid cfg=saved` + `wifi: UP\|DOWN mac=… ip=… rssi=… ch=… bssid=…` + `net : tx=… tx_err=… tx_offline=… rx=… rx_bad=… rx_foreign=… disc=… last_reason=…` + `setup: on name=… ble=connected` + `dsp : app=… boot=… build=… state=… staged=…(job n) pan=?` (콘솔과 달리 main/rfid/heap 줄 없음) | `dsp :` 줄 뒤 유휴 |
-| `setup` / `setup on` / `setup off` | `setup: on name=AGVBR-07-A1B2 ble=connected` 꼴 한 줄 (`setup off` 뒤 곧 끊김) | 한 줄 |
+| `setup` / `setup on` / `setup off` | `setup: on name=AGVBR-07-A1B2 ble=connected` 꼴 한 줄 (`setup off` 뒤 곧 끊김). 닫힌 상태는 `setup: off name=…`, 열리는 중이면 `setup: opening name=…`, 빌드에서 뺐으면 `setup: unavailable` | 한 줄 |
 | `dsp` | `dsp : …` 한 줄. `state=nopart (USB reflash needed)` 면 구 파티션 | 한 줄 |
 | `help` | `cfg \| set <key> <value> \| save \| reboot \| stat \| setup [on\|off] \| dsp [ver\|apply] \| defaults` 한 줄 | 한 줄 |
 | 모르는 명령 | `unknown command '<cmd>' - type help` | 한 줄 |
@@ -279,7 +279,7 @@ MAC 은 소문자 `aa:bb:cc:dd:ee:ff` 입니다(문서 그림은 대문자지만
 
 | ID | 우선 | 기능 | 세부 |
 |---|---|---|---|
-| F-E1 | 필수 | 설정 폼 | 3.1 의 17개 키. 그룹: 호기 / Wi-Fi / 네트워크(IP·마스크·GW, 고급: DNS·DNS2) / 서버(IP·포트·수신 포트) / 고급(RFID 송신·포트, 보드레이트 2개, hb_ms). 고급 그룹은 접힘 기본. 숫자 · IP 란은 숫자 자판(`KeyboardType.Number`/`Decimal`), SSID · 비밀번호는 자동 대문자 · 자동 완성 끔 |
+| F-E1 | 필수 | 설정 폼 | 3.1 의 16개 키. 그룹: 호기 / Wi-Fi / 네트워크(IP·마스크·GW, 고급: DNS·DNS2) / 서버(IP·포트·수신 포트) / 고급(RFID 송신·포트, 보드레이트 2개, hb_ms). 고급 그룹은 접힘 기본. 숫자 · IP 란은 숫자 자판(`KeyboardType.Number`/`Decimal`), SSID · 비밀번호는 자동 대문자 · 자동 완성 끔 |
 | F-E2 | 필수 | 장치값 ↔ 적용값 대조 | 장치에서 읽은 값과 폼의 값이 다르면 항목 옆에 "변경" 표식(아이콘 + 텍스트), 하단에 "변경 n개". 비밀번호는 장치값 "(8자)" 로 표시하고 폼이 비어 있으면 **유지** |
 | F-E3 | 필수 | 입력 검증 | 3.1 규칙을 입력 즉시 검사해 항목 아래 한 줄 안내. 전부 통과해야 [적용] 활성. 추가 검사: IP · GW · 서버가 같은 서브넷인지(마스크 기준, 경고만), IP 가 GW · 서버와 같지 않은지, 마지막 옥텟 0/255 금지(경고) |
 | F-E4 | 필수 | 프로필 자동 채움 | 프로필 선택 → 호기 번호 외 전부 채움. 호기 번호 바꾸면 IP 규칙으로 IP 재계산(사용자가 IP 를 직접 고친 뒤에는 재계산하지 않고 "규칙과 다름" 표시 + [규칙값으로]) |
@@ -339,7 +339,7 @@ MAC 은 소문자 `aa:bb:cc:dd:ee:ff` 입니다(문서 그림은 대문자지만
 | F-H1 | 필수 | 기록 | 시각 · 프로필 · 호기 · MAC(0.5.3+) · BLE 주소 · 장치 이름 · IP · SSID · fw · 연결 종류 · 작업(적용/초기화) · 결과 · 메모. `history.jsonl` 에 추가만 |
 | F-H2 | 권장 | 조회 | 목록(LazyColumn), 프로필 · 호기 · 이름 검색, 기간 필터. 항목 → 그때 값으로 폼 채우기 |
 | F-H3 | 권장 | 내보내기 | CSV 공유(설치 보고용) |
-| F-H4 | 선택 | 라벨 텍스트 | "AGV-07 · AGVBR-07-A1B2 · 192.168.10.107 · a1:b2:c3:d4:e5:f6" 클립보드 복사 |
+| F-H4 | 선택 | 라벨 텍스트 | "AGV-07 · AGVBR-07-A1B2 · 192.168.10.107 · a1:b2:c3:d4:a1:b2" 클립보드 복사 |
 
 ### 4.8 진단 · 콘솔 (D)
 
@@ -633,7 +633,7 @@ Android BLE 는 기기 편차가 커서 아래 순서 · 규칙을 그대로 지
 ### 8.4 쓰기 · 읽기
 
 - 쓰기: 줄 + `\n` 의 UTF-8 바이트를 `mtu-3` 씩 나눠 `WRITE_TYPE_NO_RESPONSE` 로, 각 청크는 `onCharacteristicWrite` 콜백 뒤 다음 청크(큐). API 33+ 는 `writeCharacteristic(ch, bytes, type)` 사용, 이하는 `setValue` 후 `writeCharacteristic(ch)`.
-- 한 줄 ≤ 200B(브리지 버퍼 256B). 명령은 한 번에 하나(`Mutex`), 응답 끝 판정은 `ResponseAssembler`(3.2.1 규칙 → 아니면 250ms 유휴, 최대 3초).
+- 한 줄 ≤ 199B(브리지가 200바이트 버퍼에서 NUL 을 빼고 199바이트까지 받음. 값이 잘리면 안 되므로 앱은 넘기지 않음). 명령은 한 번에 하나(`Mutex`), 응답 끝 판정은 `ResponseAssembler`(3.2.1 규칙 → 아니면 250ms 유휴, 최대 3초).
 - 읽기: `onCharacteristicChanged` 의 바이트를 UTF-8 로 누적. 멀티바이트 문자가 청크 경계에 걸릴 수 있으니 바이트 단위로 누적 후 디코드.
 
 ### 8.5 끊김 · 오류
@@ -713,7 +713,7 @@ Android BLE 는 기기 편차가 커서 아래 순서 · 규칙을 그대로 지
 | `ResponseParsers` | 부록 A 의 전문을 fixtures 로. 환영 문구(비밀번호 있음/없음) · 0.5.5 `cfg`(dns 있음) · 0.5.2 `cfg`(dns 없음) · 공백 SSID(`ssid="AGV WIFI 2F"`) · `ip=dhcp` · `rfid_dst=off` · `state=trial` · `* differs` 줄 유무 · BLE `stat`(fw 줄 있음, UP/DOWN) · 콘솔 `stat`(fw 줄 없음, main/rfid/heap) · `mac=` 없는 구버전 · `setup` on/off · `dsp` `nopart` · `set` 성공/실패 문구 · 청크 경계에서 잘린 UTF-8 |
 | `ResponseAssembler` | 규칙 종료(cfg 의 `state=`, 한 줄 명령) · 유휴 종료 · 최대 시간 · 청크가 줄 중간에서 끊김 |
 | `ConfigValidator` | 3.1 표의 경계값 전부(agv 0/1/99/100, ssid 32/33바이트 · 한글 바이트 계산, pass 7/8/64/65/`-`, IP 앞자리 0 · 256 · `dhcp`, mask 0.0.0.0, server 0.0.0.0, 포트 0/1/65535/65536, baud 1199/1200/1000000/1000001, hb 0/1/99/100/2000/2001) + 서브넷 경고 |
-| `BridgeCommands` | BLE 는 따옴표 없음 · 200B 초과 거부, Usb 는 인용 · 이스케이프 · 160자 |
+| `BridgeCommands` | BLE 는 따옴표 없음 · 199B 초과 거부, Usb 는 인용 · 이스케이프 · 160바이트 |
 | `IpRule` | offset 계산, 범위 초과, dhcp/manual, 기준 네트워크 검증 |
 | `ApplyWorkflow` + `FakeBridgeChannel` | 정상 경로, `invalid` 중단(저장 안 됨 검증), `save failed`, `busy` 재부팅 거부, 재부팅 뒤 재연결 timeout, Wi-Fi DOWN 201, 취소 시점별 상태, `pass` 미전송(유지), dns 미지원 펌웨어에서 dns 키 생략, 중간 끊김 후 처음부터 재시도 |
 | `ProfileCodec` · `HistoryCodec` · `ProfileExport` | 왕복, 모르는 필드 보존, 비밀번호 포함/제외, CSV |
@@ -903,7 +903,7 @@ state=saved
 ```
 → stat\n
 fw=0.5.5 part=ota_0 ota=valid cfg=saved
-wifi: UP mac=a1:b2:c3:d4:e5:f6 ip=192.168.10.107 rssi=-55 ch=6 bssid=11:22:33:44:55:66
+wifi: UP mac=a1:b2:c3:d4:a1:b2 ip=192.168.10.107 rssi=-55 ch=6 bssid=11:22:33:44:55:66
 net : tx=1234 tx_err=0 tx_offline=0 rx=56 rx_bad=0 rx_foreign=0 disc=0 last_reason=0
 setup: on name=AGVBR-07-A1B2 ble=connected
 dsp : app=1.0.3 boot=1.1.0 build=2026-10-01 state=idle staged=-(job 0) pan=?
@@ -932,7 +932,7 @@ login <password>
 ok - type help
 → stat\n
 fw=0.5.5 part=ota_0 ota=valid cfg=saved
-wifi: UP mac=a1:b2:c3:d4:e5:f6 ip=192.168.10.107 rssi=-52 ch=6 bssid=11:22:33:44:55:66
+wifi: UP mac=a1:b2:c3:d4:a1:b2 ip=192.168.10.107 rssi=-52 ch=6 bssid=11:22:33:44:55:66
 …
 ```
 
@@ -1007,7 +1007,7 @@ unknown command 'foo' - type help
 ### B-3. `history.jsonl` (1줄 1건)
 
 ```json
-{"at":"2026-10-17T10:15:32Z","profileId":"hq-f1","profileName":"본사 1공장","agv":7,"bleAddress":"AA:BB:CC:DD:EE:F8","mac":"a1:b2:c3:d4:e5:f6","deviceName":"AGVBR-07-A1B2","ip":"192.168.10.107","ssid":"AGV_WIFI","fw":"0.5.5","channel":"ble","action":"apply","result":"ok","rssi":-55,"note":""}
+{"at":"2026-10-17T10:15:32Z","profileId":"hq-f1","profileName":"본사 1공장","agv":7,"bleAddress":"AA:BB:CC:DD:EE:F8","mac":"a1:b2:c3:d4:a1:b2","deviceName":"AGVBR-07-A1B2","ip":"192.168.10.107","ssid":"AGV_WIFI","fw":"0.5.5","channel":"ble","action":"apply","result":"ok","rssi":-55,"note":""}
 {"at":"2026-10-17T10:31:02Z","profileId":"hq-f1","profileName":"본사 1공장","agv":8,"bleAddress":"AA:BB:CC:DD:EE:03","mac":null,"deviceName":"AGVBR-08-E501","ip":"192.168.10.108","ssid":"AGV_WIFI","fw":"0.5.2","channel":"ble","action":"apply","result":"wifi_down:201","rssi":null,"note":"AP 안 보임, 현장 확인 필요"}
 ```
 

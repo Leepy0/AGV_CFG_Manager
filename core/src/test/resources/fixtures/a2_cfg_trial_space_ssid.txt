@@ -1,0 +1,7 @@
+agv=12 ssid="AGV WIFI 2F" pass=(8 chars)
+ip=dhcp mask=255.255.255.0 gw=0.0.0.0
+dns=auto dns2=auto
+server=192.168.10.10:50000 local_port=50000
+rfid_dst=off:50001
+main_baud=115200 rfid_baud=9600 hb_ms=0
+state=trial

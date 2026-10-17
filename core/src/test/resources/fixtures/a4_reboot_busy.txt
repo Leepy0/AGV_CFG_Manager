@@ -1,0 +1,1 @@
+busy: mainboard programming - reboot refused, retry when done

@@ -1,0 +1,8 @@
+agv=7 ssid="AGV_WIFI" pass=(10 chars)
+ip=192.168.10.107 mask=255.255.255.0 gw=192.168.10.1
+dns=192.168.10.1 dns2=8.8.8.8
+server=192.168.10.10:50000 local_port=50000
+rfid_dst=255.255.255.255:50001
+main_baud=115200 rfid_baud=9600 hb_ms=1000
+state=saved
+* differs from running config - 'save' then 'reboot' to apply
