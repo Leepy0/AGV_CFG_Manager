@@ -296,6 +296,8 @@ private fun ProfileBar(ui: BoardsUi, onSelect: (String) -> Unit) {
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // 드롭다운 버튼의 눈에 보이는 높이는 터치 영역보다 작아서, 위 간격을 띄워야 글자가 버튼에 붙지 않는다.
+            modifier = Modifier.padding(top = AgvSpacing.S, bottom = AgvSpacing.S),
         )
     }
 }
