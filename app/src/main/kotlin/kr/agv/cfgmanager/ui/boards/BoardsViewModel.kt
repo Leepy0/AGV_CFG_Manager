@@ -91,7 +91,7 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
                 }
             }
             try {
-                container.boards.discover(SCAN_DURATION).collect { rows: List<BoardRow> ->
+                container.boards.discover(container.settings.current.scanSeconds.seconds).collect { rows: List<BoardRow> ->
                     _ui.update { it.copy(rows = rows, nowMs = now()) }
                 }
             } catch (cancelled: CancellationException) {
@@ -184,6 +184,5 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
     private companion object {
         const val TICK_MS = 1_000L
         const val RESCAN_GAP_MS = 6_000L
-        val SCAN_DURATION = 10.seconds
     }
 }

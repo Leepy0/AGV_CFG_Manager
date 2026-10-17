@@ -42,9 +42,13 @@ object ProfileExport {
 
     private const val FORMAT_VERSION = 1
     private val json = Json { prettyPrint = true }
+    private val compactJson = Json
 
-    /** [includePasswords] = false 면 BLE 비밀번호 · Wi-Fi 비밀번호를 모두 뺀다. */
-    fun export(bundle: ExportBundle, includePasswords: Boolean): String {
+    /**
+     * [includePasswords] = false 면 BLE 비밀번호 · Wi-Fi 비밀번호를 모두 뺀다.
+     * [pretty] = false 면 한 줄로 쓴다 (QR 용, 부록 B-2).
+     */
+    fun export(bundle: ExportBundle, includePasswords: Boolean, pretty: Boolean = true): String {
         val root = buildJsonObject {
             put("version", FORMAT_VERSION)
             put("containsPasswords", includePasswords)
@@ -57,7 +61,7 @@ object ProfileExport {
                 JsonArray(bundle.networks.map { encodeNetwork(it, includePasswords) }),
             )
         }
-        return json.encodeToString(JsonElement.serializer(), root)
+        return (if (pretty) json else compactJson).encodeToString(JsonElement.serializer(), root)
     }
 
     /** 파일 머리의 `containsPasswords` 가 true 인지. 내용은 읽지 않는다. */

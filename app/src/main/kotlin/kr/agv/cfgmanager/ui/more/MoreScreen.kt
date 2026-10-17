@@ -13,25 +13,47 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import kr.agv.cfgmanager.AppContainer
 import kr.agv.cfgmanager.ui.theme.AgvSizes
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
 
-/** ⚙ 보조 메뉴. 프로필 목록과 SSID 라이브러리로 들어간다. 정보 · 설정 화면은 Phase 5. */
+/** ⚙ 보조 메뉴: 프로필 · SSID 라이브러리 · 출장 준비 · 연속 세팅 요약 · 설정 · 정보. */
 @Composable
-fun MoreScreen(onOpenProfiles: () -> Unit, onOpenLibrary: () -> Unit) {
+fun MoreScreen(
+    container: AppContainer,
+    onOpenProfiles: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onOpenTrip: () -> Unit,
+    onOpenSummary: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenAbout: () -> Unit,
+) {
+    val batch by container.batch.ui.collectAsStateWithLifecycle()
+    val done = batch.state.done.size
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = AgvSpacing.L)) {
-        MoreRow("프로필", "현장별 공통 값 · 내보내기 · 가져오기", onOpenProfiles)
+        MoreRow("프로필", "현장별 공통 값 · 내보내기 · QR", onOpenProfiles)
         HorizontalDivider()
         MoreRow("SSID 라이브러리", "Wi-Fi 이름과 저장된 비밀번호", onOpenLibrary)
+        HorizontalDivider()
+        MoreRow("출장 준비", "프로필 · 라이브러리 한 번에 내보내기와 체크리스트", onOpenTrip)
+        HorizontalDivider()
+        MoreRow("연속 세팅 요약", if (done == 0) "아직 설정한 호기가 없습니다" else "이번에 설정한 호기 ${done}대", onOpenSummary)
+        HorizontalDivider()
+        MoreRow("설정", "테마 · 스캔 시간 · 응답 유휴 시간", onOpenSettings)
+        HorizontalDivider()
+        MoreRow("정보", "버전 · 로그 내보내기 · 오픈소스 고지", onOpenAbout)
         HorizontalDivider()
     }
 }
 
+/** 보조 메뉴의 한 줄. 제목 · 설명 · 오른쪽 화살표. 전체가 누를 수 있는 영역이다. */
 @Composable
-private fun MoreRow(title: String, summary: String, onClick: () -> Unit) {
+internal fun MoreRow(title: String, summary: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

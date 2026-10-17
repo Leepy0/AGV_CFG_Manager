@@ -58,7 +58,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.launch
 import kr.agv.cfgmanager.AppContainer
-import kr.agv.cfgmanager.BuildConfig
 import kr.agv.cfgmanager.apply.ApplyUi
 import kr.agv.cfgmanager.apply.ResultAction
 import kr.agv.cfgmanager.core.bridge.BridgeConfig
@@ -115,7 +114,7 @@ fun SettingsRoute(
                         }
                     },
                 )
-                ApplyUi.Idle -> FormBody(ui, vm, container, onOpenBoards, onEditProfile)
+                ApplyUi.Idle -> FormBody(ui, vm, onOpenBoards, onEditProfile)
             }
         }
         if (ui.apply is ApplyUi.Idle) {
@@ -128,7 +127,6 @@ fun SettingsRoute(
 private fun FormBody(
     ui: SettingsUi,
     vm: SettingsViewModel,
-    container: AppContainer,
     onOpenBoards: () -> Unit,
     onEditProfile: (String?) -> Unit,
 ) {
@@ -229,9 +227,6 @@ private fun FormBody(
             ConfigInput(ui, vm, ConfigKey.HB_MS, "heartbeat 주기 (ms, 0=끔)", editable, KeyboardType.Number, device = deviceText(ui, ConfigKey.HB_MS))
         }
 
-        if (BuildConfig.DEBUG) {
-            DeveloperSwitch(container)
-        }
         Spacer(modifier = Modifier.size(AgvSpacing.Xl))
     }
 }
@@ -269,8 +264,10 @@ private fun ProfileRow(ui: SettingsUi, vm: SettingsViewModel, onEditProfile: (St
                 }
             }
         }
+        // 프로필을 고르지 않았으면 편집할 대상이 없다. "새 프로필" 로 빠지지 않도록 막는다 (프로필 목록에서 만든다).
         TextButton(
-            onClick = { onEditProfile(ui.selectedProfile?.id) },
+            onClick = { ui.selectedProfile?.let { onEditProfile(it.id) } },
+            enabled = ui.selectedProfile != null,
             modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
         ) { Text("편집") }
     }
@@ -623,34 +620,6 @@ private fun CheckLine(label: String, checked: Boolean, enabled: Boolean, onToggl
     ) {
         Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
         Text(label, style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
-@Composable
-private fun DeveloperSwitch(container: AppContainer) {
-    val fake by container.settings.fakeBridge.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = AgvSizes.ListRowMin)
-            .clickable(role = Role.Switch) {
-                container.settings.setFakeBridge(!fake)
-                scope.launch {
-                    container.session.disconnect(notice = "가짜 브리지 설정이 바뀌어 연결을 끊었습니다.")
-                }
-            },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text("개발자 옵션 · 가짜 브리지", style = MaterialTheme.typography.titleSmall)
-            Text(
-                "하드웨어 없이 가짜 보드로 동작합니다. 바꾸면 연결이 끊깁니다.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(checked = fake, onCheckedChange = null)
     }
 }
 

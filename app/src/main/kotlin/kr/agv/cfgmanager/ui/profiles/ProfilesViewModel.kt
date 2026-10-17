@@ -61,6 +61,10 @@ class ProfilesViewModel(private val container: AppContainer) : ViewModel() {
         messageFlow.value = "가져올 파일을 읽지 못했습니다. 다시 고르세요."
     }
 
+    fun reportCameraDenied() {
+        messageFlow.value = "카메라 권한이 있어야 QR 을 읽을 수 있습니다. 허용하거나 파일로 가져오세요."
+    }
+
     fun reportWriteFailure() {
         messageFlow.value = "파일에 쓰지 못했습니다. 저장 공간과 저장 위치를 확인하세요."
     }

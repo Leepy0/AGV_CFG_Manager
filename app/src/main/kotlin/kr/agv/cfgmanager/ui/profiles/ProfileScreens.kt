@@ -5,6 +5,13 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.runtime.produceState
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import kr.agv.cfgmanager.ui.theme.AgvQrColors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -117,13 +125,37 @@ fun ProfileListRoute(container: AppContainer, onOpenProfile: (String?) -> Unit) 
         }
     }
 
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result.contents?.let { text ->
+            vm.stageImport(text) { outcome -> outcome.needsPassword?.let { onOpenProfile(it) } }
+        }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            scanLauncher.launch(
+                ScanOptions()
+                    .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                    .setPrompt("프로필 QR 을 가운데에 맞추세요")
+                    .setBeepEnabled(false)
+                    .setOrientationLocked(true),
+            )
+        } else {
+            vm.reportCameraDenied()
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = AgvSpacing.L)) {
         Spacer(modifier = Modifier.size(AgvSpacing.S))
         Row(horizontalArrangement = Arrangement.spacedBy(AgvSpacing.S)) {
-            OutlinedButton(onClick = { openLauncher.launch(arrayOf("application/json", "*/*")) }, modifier = Modifier.heightIn(min = AgvSizes.TouchMin)) {
-                Text("가져오기")
-            }
-            OutlinedButton(onClick = { exportOpen = true }, modifier = Modifier.heightIn(min = AgvSizes.TouchMin)) {
+            OutlinedButton(
+                onClick = { openLauncher.launch(arrayOf("application/json", "*/*")) },
+                modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin),
+            ) { Text("파일 가져오기") }
+            OutlinedButton(
+                onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) },
+                modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin),
+            ) { Text("QR 가져오기") }
+            OutlinedButton(onClick = { exportOpen = true }, modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin)) {
                 Text("내보내기")
             }
         }
@@ -298,6 +330,7 @@ fun ProfileEditRoute(container: AppContainer, profileId: String?, onBack: () -> 
         vm.importPhoneWifi(context, withSsid = granted)
     }
     var showBlePassword by remember { mutableStateOf(false) }
+    var qrOpen by remember { mutableStateOf(false) }
     val form = ui.form
     if (!ui.loaded) {
         StatePanel(title = "불러오는 중", body = "프로필을 읽고 있습니다.")
@@ -388,6 +421,9 @@ fun ProfileEditRoute(container: AppContainer, profileId: String?, onBack: () -> 
                     OutlinedButton(onClick = { vm.duplicate() }, modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin)) {
                         Text("복제")
                     }
+                    OutlinedButton(onClick = { qrOpen = true }, modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin)) {
+                        Text("QR 보기")
+                    }
                     OutlinedButton(onClick = { vm.askDelete(true) }, modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin)) {
                         Text("삭제")
                     }
@@ -395,6 +431,10 @@ fun ProfileEditRoute(container: AppContainer, profileId: String?, onBack: () -> 
             }
             PrimaryActionButton(text = "저장", onClick = { vm.save() })
         }
+    }
+
+    if (qrOpen) {
+        ProfileQrDialog(vm = vm, onClose = { qrOpen = false })
     }
 
     if (ui.confirmDelete) {
@@ -511,5 +551,84 @@ private fun CheckRow(label: String, checked: Boolean, onToggle: () -> Unit) {
     ) {
         Checkbox(checked = checked, onCheckedChange = null)
         Text(label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+private const val QR_PX = 720
+
+private sealed interface QrState {
+    data object Loading : QrState
+    data class Ready(val bitmap: Bitmap) : QrState
+    data class Failed(val message: String) : QrState
+}
+
+/**
+ * 저장된 프로필을 QR 로 보인다 (F-P5). 비밀번호는 기본으로 뺀다. 넣으려면 경고를 확인한다.
+ * 흰 바탕은 스캔을 위해 고정한다 (다크 테마에서도 같다).
+ */
+@Composable
+private fun ProfileQrDialog(vm: ProfileEditViewModel, onClose: () -> Unit) {
+    var includePasswords by remember { mutableStateOf(false) }
+    var warnPasswords by remember { mutableStateOf(false) }
+    val state by produceState<QrState>(QrState.Loading, includePasswords) {
+        value = QrState.Loading
+        val text = vm.qrText(includePasswords)
+        value = if (text.isSuccess) {
+            val bitmap = withContext(Dispatchers.Default) { profileQrBitmap(text.getOrThrow(), QR_PX) }
+            QrState.Ready(bitmap)
+        } else {
+            QrState.Failed(text.exceptionOrNull()?.message ?: "QR 을 만들지 못했습니다.")
+        }
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("프로필 QR", style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
+            ) {
+                when (val current = state) {
+                    QrState.Loading -> Text("만드는 중입니다.", style = MaterialTheme.typography.bodyMedium)
+                    is QrState.Ready -> Surface(color = AgvQrColors.Background) {
+                        Image(
+                            bitmap = current.bitmap.asImageBitmap(),
+                            contentDescription = "프로필 QR 코드",
+                            modifier = Modifier.size(AgvSizes.QrSize).padding(AgvSpacing.S),
+                        )
+                    }
+                    is QrState.Failed -> Text(current.message, style = MaterialTheme.typography.bodyMedium, color = AgvTheme.status.alarm)
+                }
+                CheckRow("비밀번호 포함 (평문)", includePasswords) {
+                    if (includePasswords) includePasswords = false else warnPasswords = true
+                }
+                Text(
+                    if (includePasswords) {
+                        "QR 에 BLE 비밀번호가 들어갑니다. 화면을 다른 사람에게 보이지 마세요."
+                    } else {
+                        "비밀번호는 빠집니다. 받는 휴대폰에서 BLE 비밀번호를 다시 입력합니다."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (includePasswords) AgvTheme.status.alarm else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onClose, modifier = Modifier.heightIn(min = AgvSizes.TouchMin)) { Text("닫기") }
+        },
+    )
+    if (warnPasswords) {
+        ConfirmDialog(
+            title = "QR 에 비밀번호를 넣습니다",
+            text = "BLE 비밀번호가 QR 에 평문으로 담깁니다. QR 을 찍을 휴대폰에만 보이게 하세요.",
+            confirmLabel = "포함",
+            danger = true,
+            onConfirm = {
+                includePasswords = true
+                warnPasswords = false
+            },
+            onDismiss = { warnPasswords = false },
+        )
     }
 }

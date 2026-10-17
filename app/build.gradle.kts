@@ -11,6 +11,8 @@ plugins {
 val appChannel: String = providers.gradleProperty("channel").orElse("local").get()
 val appVersionName: String = providers.gradleProperty("versionName").orElse("0.1.0").get()
 val appVersionCode: Int = providers.gradleProperty("versionCode").orElse("100").get().toInt()
+// 커밋 식별자 (정보 화면). CI 는 -PsourceRevision=<짧은 sha> 를 넘긴다. 로컬 빌드는 "local".
+val appRevision: String = providers.gradleProperty("sourceRevision").orElse("local").get()
 
 android {
     namespace = "kr.agv.cfgmanager"
@@ -23,6 +25,7 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
         buildConfigField("String", "CHANNEL", "\"$appChannel\"")
+        buildConfigField("String", "SOURCE_REVISION", "\"$appRevision\"")
     }
 
     buildFeatures {
@@ -57,6 +60,8 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
+    implementation(libs.zxing.android.embedded)
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

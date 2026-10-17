@@ -53,6 +53,8 @@ class BridgeSession(
     private val boards: BoardSource,
     private val scope: CoroutineScope,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** 연결 · 끊김 · 재연결 같은 큰 사건을 앱 로그에 남긴다. 명령 원문은 넘기지 않는다. */
+    private val journal: (String) -> Unit = {},
 ) {
     private val stateFlow = MutableStateFlow(SessionState())
     val state: StateFlow<SessionState> = stateFlow.asStateFlow()
@@ -109,6 +111,7 @@ class BridgeSession(
         if (workflowRunning) return ConnectOutcome.Failed(ConnectFailure.Other("적용 중이라 다른 보드에 연결할 수 없습니다"))
         connectJob = currentCoroutineContext()[Job]
         userClosed = false
+        journal("연결 시도")
         return try {
             lock.withLock {
                 dropLinkLocked(LinkStatus.Disconnected)
@@ -120,7 +123,9 @@ class BridgeSession(
                 when (val link = linkLocked(Target(address, name, password), CONNECT_TIMEOUT, onStage)) {
                     is LinkResult.Failed -> {
                         stateFlow.update { it.copy(link = LinkStatus.Disconnected) }
-                        ConnectOutcome.Failed(countFailure(address, link.failure))
+                        val failed = countFailure(address, link.failure)
+                        journal("연결 실패: ${failed::class.simpleName}")
+                        ConnectOutcome.Failed(failed)
                     }
                     is LinkResult.Linked -> readLocked(link.channel, address, onStage)
                 }
@@ -145,6 +150,7 @@ class BridgeSession(
     suspend fun disconnect(notice: String? = null) {
         if (workflowRunning) return
         userClosed = true
+        journal("사용자가 연결을 끊음")
         reconnectJob?.cancel()
         reconnectJob = null
         connectJob?.cancel()
@@ -227,6 +233,7 @@ class BridgeSession(
                 val text = channel.execThenDisconnect(BridgeCommands.reboot())
                 when (ResponseParsers.parseRebootResult(text)) {
                     ResponseParsers.RebootResult.Rebooting -> {
+                        journal("재부팅 요청 응답")
                         stateFlow.update { it.copy(link = LinkStatus.Rebooting, snapshot = null) }
                         RebootOutcome.Rebooting(text)
                     }
@@ -432,6 +439,7 @@ class BridgeSession(
         val t = target ?: return
         if (reconnectJob?.isActive == true) return
         reconnectJob = scope.launch {
+            journal("자동 재연결 시작")
             val deadline = clock() + RECONNECT_WINDOW_MS
             val ticker = launch {
                 while (isActive) {
@@ -458,6 +466,7 @@ class BridgeSession(
                 }
             }
             ticker.cancel()
+            journal(if (recovered) "자동 재연결 성공" else "자동 재연결 실패")
             if (!recovered && !userClosed && !workflowRunning) {
                 lock.withLock {
                     dropLinkLocked(
@@ -472,6 +481,7 @@ class BridgeSession(
     private suspend fun checkIdle() {
         if (stateFlow.value.link != LinkStatus.Connected || userClosed || workflowRunning) return
         if (clock() - lastActivityMs >= IDLE_LIMIT_MS) {
+            journal("5분 유휴로 끊음")
             disconnect(notice = "5분 동안 사용하지 않아 연결을 끊었습니다. 다시 연결하려면 보드 탭에서 찾으세요.")
         }
     }

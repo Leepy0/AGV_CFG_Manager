@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kr.agv.cfgmanager.AppContainer
 import kr.agv.cfgmanager.core.profiles.ProfileIssue
+import kr.agv.cfgmanager.core.profiles.ProfileQr
 import kr.agv.cfgmanager.core.profiles.ProfileTemplate
 import kr.agv.cfgmanager.core.profiles.ProfileValidator
 import kr.agv.cfgmanager.core.util.PhoneNetwork
@@ -132,6 +133,17 @@ class ProfileEditViewModel(private val container: AppContainer, private val prof
             form = uiFlow.value.form?.withPhoneWifi(fields),
             notice = parts.joinToString(" ").ifEmpty { "현장 Wi-Fi 값을 채웠습니다." },
         )
+    }
+
+    /**
+     * QR 로 옮길 문자열. 저장된 프로필만 된다 (편집 중인 값은 반영하지 않는다).
+     * [includePasswords] 가 참이면 BLE 비밀번호가 든다. 실패하면 사람이 읽을 문구를 담은 예외.
+     */
+    suspend fun qrText(includePasswords: Boolean): Result<String> {
+        val id = profileId ?: return Result.failure(IllegalStateException("저장한 뒤에 QR 을 만들 수 있습니다."))
+        val profile = container.profiles.load().profiles.firstOrNull { it.id == id }
+            ?: return Result.failure(IllegalStateException("프로필을 찾지 못했습니다."))
+        return runCatching { ProfileQr.encode(profile, includePasswords) }
     }
 
     private fun nowIso(): String = Instant.now().truncatedTo(ChronoUnit.SECONDS).toString()

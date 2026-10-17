@@ -73,6 +73,8 @@ class ApplyRunner(
     private val scope: CoroutineScope,
     private val clock: () -> Long = System::currentTimeMillis,
     private val isFake: () -> Boolean = { false },
+    /** 적용 시작 · 결과를 앱 로그에 남긴다. 값(비밀번호 · IP)은 넘기지 않는다. */
+    private val journal: (String) -> Unit = {},
     /** 저장 · 재부팅 · Wi-Fi 확인까지 성공한 뒤 불린다 (프로필 사용 시각, SSID 라이브러리 저장). 실패는 무시한다. */
     private val onSucceeded: suspend (ApplyMeta, BridgeConfig) -> Unit = { _, _ -> },
 ) {
@@ -109,6 +111,7 @@ class ApplyRunner(
 
     private suspend fun run(target: BridgeConfig, saveOnly: Boolean, meta: ApplyMeta) {
         val before = session.state.value.snapshot
+        journal("적용 시작: ${target.agv}호기${if (saveOnly) " (저장만)" else ""}")
         var finished: ApplyResult? = null
         val onProgress: (WorkflowProgress) -> Unit = { progress ->
             when (progress) {
@@ -150,6 +153,7 @@ class ApplyRunner(
         meta: ApplyMeta,
     ) {
         result.after?.let { session.adoptSnapshot(it) }
+        journal("적용 결과: ${result.historyResult}")
         val historyOk = if (result.outcome == ApplyOutcome.NoChange) true else {
             withContext(NonCancellable + Dispatchers.IO) {
                 try {

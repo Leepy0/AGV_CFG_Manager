@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  게이트웨이 PC 는 사내 LAN 에서 http://<server>:8080/ 으로 열린다 (F-D4). 주소가 사내마다 다르므로
+  도메인 단위로 허용할 수 없어 평문 HTTP 를 허용한다. 앱이 보내는 평문 요청은 게이트웨이 HEAD 하나뿐이다.
+  업데이트 매니페스트와 APK 는 github.com (HTTPS) 에서 받는다 (Phase 6).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

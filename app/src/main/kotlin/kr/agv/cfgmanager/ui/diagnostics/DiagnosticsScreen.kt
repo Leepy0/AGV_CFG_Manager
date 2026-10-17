@@ -1,6 +1,8 @@
 package kr.agv.cfgmanager.ui.diagnostics
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,11 +25,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -36,9 +41,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kr.agv.cfgmanager.AppContainer
+import kr.agv.cfgmanager.net.GatewayResult
 import kr.agv.cfgmanager.session.ConsoleKind
 import kr.agv.cfgmanager.session.ConsoleLine
 import kr.agv.cfgmanager.session.LinkStatus
+import kr.agv.cfgmanager.ui.components.ConfirmDialog
 import kr.agv.cfgmanager.ui.components.PrimaryActionButton
 import kr.agv.cfgmanager.ui.components.SectionTitle
 import kr.agv.cfgmanager.ui.components.SmallTextAction
@@ -47,10 +54,8 @@ import kr.agv.cfgmanager.ui.theme.AgvMonoText
 import kr.agv.cfgmanager.ui.theme.AgvSizes
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
 import kr.agv.cfgmanager.ui.theme.AgvTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 
-/** 진단 탭: 상태 카드(위) + 콘솔(아래) + 입력줄 + 주요 행동 [새로고침]. */
+/** 진단 탭: 상태 카드 · 게이트웨이 확인 · 콘솔 · 빠른 명령 · 입력줄 · 주요 행동 [새로고침], 맨 아래 공장 초기화. */
 @Composable
 fun DiagnosticsRoute(container: AppContainer) {
     val vm: DiagnosticsViewModel = viewModel(factory = viewModelFactory {
@@ -65,6 +70,8 @@ fun DiagnosticsRoute(container: AppContainer) {
         StatusCardBuilder.build(snapshot?.status, snapshot?.cfgState, snapshot?.fw)
     }
     val recent = remember(lines) { recentCommands(lines) }
+    var resetAsk by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -86,7 +93,7 @@ fun DiagnosticsRoute(container: AppContainer) {
                 modifier = Modifier.padding(start = AgvSpacing.S),
             )
         }
-        Box(modifier = Modifier.fillMaxWidth().weight(0.42f)) {
+        Box(modifier = Modifier.fillMaxWidth().weight(0.4f)) {
             if (connected && snapshot != null) {
                 StatusCardView(card = card, modifier = Modifier.fillMaxSize())
             } else {
@@ -100,25 +107,42 @@ fun DiagnosticsRoute(container: AppContainer) {
                 )
             }
         }
+        if (connected && snapshot != null) {
+            GatewayLine(
+                result = ui.gateway,
+                busy = ui.gatewayBusy,
+                onCheck = vm::checkGateway,
+                onOpen = {
+                    vm.gatewayUrl()?.let { url ->
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        } catch (missing: ActivityNotFoundException) {
+                            // 브라우저가 없으면 조용히 넘어간다. 확인 결과는 그대로 남는다.
+                        }
+                    }
+                },
+            )
+        }
         ui.error?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = AgvTheme.status.alarm)
         }
+        ui.resetNotice?.let {
+            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
 
-        ConsoleSection(lines = lines, modifier = Modifier.fillMaxWidth().weight(0.58f))
+        ConsoleSection(lines = lines, modifier = Modifier.fillMaxWidth().weight(0.5f))
 
-        if (recent.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(AgvSpacing.S),
-            ) {
-                recent.forEach { command ->
-                    AssistChip(
-                        onClick = { vm.recall(command) },
-                        label = { Text(command, style = AgvMonoText) },
-                        enabled = connected,
-                        modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
-                    )
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(AgvSpacing.S),
+        ) {
+            (QUICK_COMMANDS + recent.filterNot { it in QUICK_COMMANDS }).forEach { command ->
+                AssistChip(
+                    onClick = { if (command in QUICK_COMMANDS) vm.runQuick(command) else vm.recall(command) },
+                    label = { Text(command, style = AgvMonoText) },
+                    enabled = connected,
+                    modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
+                )
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -145,9 +169,64 @@ fun DiagnosticsRoute(container: AppContainer) {
             text = "새로고침",
             onClick = vm::refresh,
             enabled = connected && !ui.busy,
-            modifier = Modifier.padding(bottom = AgvSpacing.M),
+        )
+        TextButton(
+            onClick = { resetAsk = true },
+            enabled = connected && !ui.resetBusy && snapshot != null,
+            modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin).padding(bottom = AgvSpacing.M),
+        ) {
+            Text("공장 초기화…", color = MaterialTheme.colorScheme.error)
+        }
+    }
+
+    if (resetAsk) {
+        val target = vm.resetTarget()
+        val label = target?.agv?.let { "%02d호기".format(it) } ?: "이 보드"
+        ConfirmDialog(
+            title = "$label 설정을 지울까요?",
+            text = buildString {
+                append("대상: ${target?.deviceName ?: "장치 이름 없음"}\n")
+                append("영향: 저장된 Wi-Fi · IP · 서버 설정이 지워지고 보드가 재부팅합니다.\n")
+                append("복구: 프로필이나 SSID 라이브러리가 있으면 다시 적용할 수 있습니다. 그 밖의 값은 되돌릴 수 없습니다.")
+            },
+            confirmLabel = "$label 설정 지우기",
+            danger = true,
+            cancelFocused = true,
+            onConfirm = {
+                resetAsk = false
+                target?.let { vm.factoryReset(it) }
+            },
+            onDismiss = { resetAsk = false },
         )
     }
+}
+
+/** 게이트웨이 PC 확인 줄 (F-D4): [확인] 은 HEAD 한 번, [화면 열기] 는 브라우저. */
+@Composable
+private fun GatewayLine(result: GatewayResult?, busy: Boolean, onCheck: () -> Unit, onOpen: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("게이트웨이 PC", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (busy) "확인하는 중…" else gatewayText(result),
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (result is GatewayResult.Responded) AgvTheme.status.ok else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        SmallTextAction(text = "확인", onClick = onCheck, enabled = !busy)
+        SmallTextAction(text = "화면 열기", onClick = onOpen, enabled = result is GatewayResult.Responded)
+    }
+}
+
+/** 게이트웨이 확인 결과 문구. 응답 없음은 다음 행동까지 적는다. */
+internal fun gatewayText(result: GatewayResult?): String = when (result) {
+    null -> "아직 확인하지 않았습니다. [확인] 을 누르세요."
+    is GatewayResult.Responded -> "응답 있음 (HTTP ${result.status})"
+    GatewayResult.NoResponse -> "응답 없음. 휴대폰이 같은 Wi-Fi 에 있는지, 게이트웨이 PC 가 켜져 있는지 확인하세요."
+    GatewayResult.InvalidServer -> "서버 주소를 읽지 못했습니다. 보드 설정을 다시 읽으세요."
 }
 
 /**

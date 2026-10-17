@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
 import kr.agv.cfgmanager.apply.ApplyRunner
+import kr.agv.cfgmanager.apply.FactoryResetRunner
 import kr.agv.cfgmanager.batch.BatchController
 import kr.agv.cfgmanager.data.KeystoreCipher
 import kr.agv.cfgmanager.data.NetworkStore
@@ -17,7 +18,9 @@ import kr.agv.cfgmanager.ble.BleBoardSource
 import kr.agv.cfgmanager.ble.BlePreflightProbe
 import kr.agv.cfgmanager.ble.BleScanner
 import kr.agv.cfgmanager.data.HistoryStore
+import kr.agv.cfgmanager.data.PrefsStringStore
 import kr.agv.cfgmanager.data.SettingsStore
+import kr.agv.cfgmanager.log.AppLog
 import kr.agv.cfgmanager.session.BoardSource
 import kr.agv.cfgmanager.session.BridgeSession
 import kr.agv.cfgmanager.session.FakeBoardSource
@@ -35,7 +38,10 @@ class AppContainer(context: Context) {
     /** 앱 수명 범위 코루틴. 세션의 감시 · 재연결 · 유휴 확인과 적용 실행이 여기서 돈다. */
     val appScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    val settings = SettingsStore(appContext)
+    val settings = SettingsStore(PrefsStringStore(appContext))
+
+    /** 앱 로그 (`filesDir/logs/app-YYYYMMDD.log`, 7일 보관). */
+    val log = AppLog(File(appContext.filesDir, LOG_DIR))
 
     private val adapter: BluetoothAdapter? = appContext
         .getSystemService(BluetoothManager::class.java)
@@ -47,12 +53,12 @@ class AppContainer(context: Context) {
 
     /** 디버그 빌드에서 "가짜 브리지" 를 켜면 가짜 원천을 쓴다. 릴리스 빌드에서는 항상 BLE. */
     val boards: BoardSource = SwitchingBoardSource(
-        ble = BleBoardSource(appContext, adapter, scanner),
+        ble = BleBoardSource(appContext, adapter, scanner) { settings.current.responseIdleMs },
         fake = FakeBoardSource(FakeRoster.create()) { System.currentTimeMillis() },
-        useFake = { BuildConfig.DEBUG && settings.fakeBridge.value },
+        useFake = { BuildConfig.DEBUG && settings.current.fakeBridge },
     )
 
-    val session = BridgeSession(boards, appScope)
+    val session = BridgeSession(boards, appScope, journal = { log.info("세션", it) })
 
     /** 작업 이력 (`filesDir/history.jsonl`, 추가만). */
     val history = HistoryStore(File(appContext.filesDir, HISTORY_FILE))
@@ -72,10 +78,18 @@ class AppContainer(context: Context) {
         history = history,
         scope = appScope,
         isFake = { boards.isFake },
+        journal = { log.info("적용", it) },
         onSucceeded = { meta, target ->
             meta.profileId?.let { profiles.markUsed(it) }
             if (meta.rememberWifi) networks.remember(target.ssid, target.pass)
         },
+    )
+
+    /** 공장 초기화 (F-A5). 세션의 독점 구간에서 defaults → reboot 을 보낸다. */
+    val factoryReset = FactoryResetRunner(
+        exclusive = { block -> session.withExclusive { channel -> block(channel) } },
+        history = history,
+        isFake = { boards.isFake },
     )
 
     /** 연속 세팅 상태 (앱 수명 동안 유지). */
@@ -98,5 +112,6 @@ class AppContainer(context: Context) {
         const val HISTORY_FILE = "history.jsonl"
         const val PROFILE_FILE = "profiles.json"
         const val NETWORK_FILE = "networks.json"
+        const val LOG_DIR = "logs"
     }
 }

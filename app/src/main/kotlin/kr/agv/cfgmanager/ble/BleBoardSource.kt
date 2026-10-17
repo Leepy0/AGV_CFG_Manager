@@ -8,12 +8,15 @@ import kr.agv.cfgmanager.session.BoardRow
 import kr.agv.cfgmanager.session.BoardSource
 import kr.agv.cfgmanager.session.ConnectStage
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /** BLE 으로 실제 보드를 찾고 연결하는 원천. */
 class BleBoardSource(
     private val context: Context,
     private val adapter: BluetoothAdapter?,
     private val scanner: BleScanner,
+    /** 연결할 때마다 읽는 응답 유휴 시간 (ms). 설정 화면의 값이다. */
+    private val responseIdleMs: () -> Int = { 250 },
 ) : BoardSource {
     override val isFake: Boolean = false
 
@@ -26,6 +29,6 @@ class BleBoardSource(
         onStage: (ConnectStage) -> Unit,
     ): IBridgeChannel {
         val bt = adapter ?: throw IllegalStateException("이 휴대폰은 블루투스를 사용할 수 없습니다")
-        return BleBridgeChannel(context, bt, scanner, address, password, name, onStage)
+        return BleBridgeChannel(context, bt, scanner, address, password, name, onStage, responseIdleMs().milliseconds)
     }
 }

@@ -1,6 +1,7 @@
 package kr.agv.cfgmanager.ui.theme
 
 import androidx.compose.material3.Shapes
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +38,15 @@ object AgvSizes {
     val LabelColumn = 96.dp
     val ChipRadius = 16.dp
     val CardRadius = 8.dp
+    val QrSize = 240.dp
+}
+
+/**
+ * QR 코드 색. 어두운 테마에서도 스캔이 되도록 흰 바탕 · 검은 점을 고정한다 (기능상 필요한 예외).
+ */
+object AgvQrColors {
+    val Background = Color(0xFFFFFFFF)
+    val Foreground = Color(0xFF000000)
 }
 
 /** 로그 · 명령 · 숫자 열용 고정폭 글자. 크기는 본문 소형 단계에 맞춘다. */

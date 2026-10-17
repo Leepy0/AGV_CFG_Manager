@@ -21,4 +21,7 @@ object ShareFiles {
         putExtra(Intent.EXTRA_STREAM, uri)
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
+
+    /** 공유 시트 인텐트. 파일 쓰기(writeText)는 IO 스레드에서, startActivity 는 메인에서 한다. */
+    fun chooser(uri: Uri, mimeType: String, title: String): Intent = Intent.createChooser(sendIntent(uri, mimeType), title)
 }

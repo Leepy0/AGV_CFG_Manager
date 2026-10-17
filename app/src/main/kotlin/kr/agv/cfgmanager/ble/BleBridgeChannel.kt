@@ -55,6 +55,8 @@ class BleBridgeChannel(
     private val loginPassword: String,
     private val nameHint: String?,
     private val onStage: (ConnectStage) -> Unit,
+    /** 응답 끝 판정의 유휴 시간 (설정 · 14장 6). 기본 250ms. */
+    private val idleTimeout: Duration = 250.milliseconds,
 ) : IBridgeChannel, LinkReport {
 
     override val kind: ChannelKind = ChannelKind.Ble
@@ -260,7 +262,7 @@ class BleBridgeChannel(
             // 이전 응답의 남은 조각을 버린다
         }
         writeLine(line)
-        val reply = readReply(reader, ReplyRule.forCommand(line, kind), maxWait = timeout)
+        val reply = readReply(reader, ReplyRule.forCommand(line, kind), idleTimeout = idleTimeout, maxWait = timeout)
         when (reply.end) {
             ReplyEnd.Timeout -> throw BridgeChannelException.Timeout(Masking.redactLine(line))
             ReplyEnd.Closed -> throw BridgeChannelException.Disconnected()
