@@ -31,6 +31,13 @@ import java.io.IOException
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+/** 적용 한 번에 붙는 부가 정보: 이력의 프로필, 성공 뒤 라이브러리 저장 여부. */
+data class ApplyMeta(
+    val profileId: String? = null,
+    val profileName: String? = null,
+    val rememberWifi: Boolean = false,
+)
+
 /** 적용 화면이 보는 상태. 회전 · 탭 전환에도 [ApplyRunner] 가 쥐고 있어 진행 패널이 복원된다. */
 sealed interface ApplyUi {
     data object Idle : ApplyUi
@@ -66,6 +73,8 @@ class ApplyRunner(
     private val scope: CoroutineScope,
     private val clock: () -> Long = System::currentTimeMillis,
     private val isFake: () -> Boolean = { false },
+    /** 저장 · 재부팅 · Wi-Fi 확인까지 성공한 뒤 불린다 (프로필 사용 시각, SSID 라이브러리 저장). 실패는 무시한다. */
+    private val onSucceeded: suspend (ApplyMeta, BridgeConfig) -> Unit = { _, _ -> },
 ) {
     private val uiFlow = MutableStateFlow<ApplyUi>(ApplyUi.Idle)
     val state: StateFlow<ApplyUi> = uiFlow.asStateFlow()
@@ -73,19 +82,19 @@ class ApplyRunner(
     private var job: Job? = null
     private var last: Pending? = null
 
-    private data class Pending(val target: BridgeConfig, val saveOnly: Boolean)
+    private data class Pending(val target: BridgeConfig, val saveOnly: Boolean, val meta: ApplyMeta)
 
     /** 적용을 시작한다. 이미 도는 중이면 false. */
-    fun start(target: BridgeConfig, saveOnly: Boolean): Boolean {
+    fun start(target: BridgeConfig, saveOnly: Boolean, meta: ApplyMeta = ApplyMeta()): Boolean {
         if (uiFlow.value is ApplyUi.Running) return false
-        last = Pending(target, saveOnly)
+        last = Pending(target, saveOnly, meta)
         uiFlow.value = ApplyUi.Running(target.agv, saveOnly, ApplyStep.Validate, "설정 확인", 0, 0)
-        job = scope.launch(start = CoroutineStart.UNDISPATCHED) { run(target, saveOnly) }
+        job = scope.launch(start = CoroutineStart.UNDISPATCHED) { run(target, saveOnly, meta) }
         return true
     }
 
     /** 마지막 적용을 같은 값으로 다시 한다. */
-    fun retry(): Boolean = last?.let { start(it.target, it.saveOnly) } ?: false
+    fun retry(): Boolean = last?.let { start(it.target, it.saveOnly, it.meta) } ?: false
 
     /** 저장 전 단계에서만 취소한다. 저장 이후에는 무시된다. */
     fun cancel() {
@@ -98,7 +107,7 @@ class ApplyRunner(
         if (uiFlow.value is ApplyUi.Done) uiFlow.value = ApplyUi.Idle
     }
 
-    private suspend fun run(target: BridgeConfig, saveOnly: Boolean) {
+    private suspend fun run(target: BridgeConfig, saveOnly: Boolean, meta: ApplyMeta) {
         val before = session.state.value.snapshot
         var finished: ApplyResult? = null
         val onProgress: (WorkflowProgress) -> Unit = { progress ->
@@ -124,12 +133,12 @@ class ApplyRunner(
                 }
             }
         } catch (cancelled: CancellationException) {
-            withContext(NonCancellable) { conclude(finished ?: cancelledResult(), target, saveOnly, before) }
+            withContext(NonCancellable) { conclude(finished ?: cancelledResult(), target, saveOnly, before, meta) }
             throw cancelled
         } catch (lost: BridgeChannelException) {
             finished = notReady("장치와 연결돼 있지 않습니다. 보드 탭에서 다시 연결하세요.")
         }
-        conclude(finished ?: notReady("적용 결과를 받지 못했습니다."), target, saveOnly, before)
+        conclude(finished ?: notReady("적용 결과를 받지 못했습니다."), target, saveOnly, before, meta)
     }
 
     /** 결과를 반영하고 이력을 남긴 뒤 완료 상태로 바꾼다. 세션 스냅샷은 워크플로가 읽은 값으로 맞춘다. */
@@ -138,15 +147,25 @@ class ApplyRunner(
         target: BridgeConfig,
         saveOnly: Boolean,
         before: DeviceSnapshot?,
+        meta: ApplyMeta,
     ) {
         result.after?.let { session.adoptSnapshot(it) }
         val historyOk = if (result.outcome == ApplyOutcome.NoChange) true else {
             withContext(NonCancellable + Dispatchers.IO) {
                 try {
-                    history.append(historyEntry(result, target, saveOnly, before, result.after))
+                    history.append(historyEntry(result, target, saveOnly, before, result.after, meta))
                     true
                 } catch (failure: IOException) {
                     false
+                }
+            }
+        }
+        if (result.outcome == ApplyOutcome.Applied || result.outcome == ApplyOutcome.SavedOnly) {
+            withContext(NonCancellable) {
+                try {
+                    onSucceeded(meta, target)
+                } catch (failure: Exception) {
+                    // 프로필 · 라이브러리 갱신 실패로 적용 결과를 바꾸지 않는다
                 }
             }
         }
@@ -159,10 +178,11 @@ class ApplyRunner(
         saveOnly: Boolean,
         before: DeviceSnapshot?,
         after: DeviceSnapshot?,
+        meta: ApplyMeta,
     ): HistoryEntry = HistoryEntry(
         at = Instant.ofEpochMilli(clock()).truncatedTo(ChronoUnit.SECONDS).toString(),
-        profileId = null,
-        profileName = null,
+        profileId = meta.profileId,
+        profileName = meta.profileName,
         agv = target.agv,
         bleAddress = session.state.value.address,
         mac = after?.mac ?: before?.mac,

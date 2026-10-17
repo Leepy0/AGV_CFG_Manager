@@ -112,8 +112,8 @@ private fun ProgressLine(row: ProgressRow, state: RowState, detail: String?) {
 
 /** 결과 카드. 성공은 중립색 + 체크, 실패는 알람색 + 경고 아이콘. 다음 행동 버튼은 문구와 함께 둔다. */
 @Composable
-fun ResultPanel(done: ApplyUi.Done, notice: String?, onAction: (ResultAction) -> Unit) {
-    val view = ApplyMessages.view(done.result)
+fun ResultPanel(done: ApplyUi.Done, notice: String?, nextAgv: Int?, onAction: (ResultAction) -> Unit) {
+    val view = ApplyMessages.view(done.result, nextAgv)
     val device = done.result.after
     Column(
         modifier = Modifier
@@ -159,14 +159,14 @@ fun ResultPanel(done: ApplyUi.Done, notice: String?, onAction: (ResultAction) ->
 
         val primary = view.actions.firstOrNull()
         primary?.let { first ->
-            PrimaryActionButton(text = actionLabel(first), onClick = { onAction(first) })
+            PrimaryActionButton(text = actionLabel(first, nextAgv), onClick = { onAction(first) })
         }
         view.actions.drop(1).forEach { action ->
             OutlinedButton(
                 onClick = { onAction(action) },
                 modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
             ) {
-                Text(actionLabel(action))
+                Text(actionLabel(action, nextAgv))
             }
         }
     }
@@ -185,7 +185,8 @@ private fun FactRow(label: String, value: String) {
     }
 }
 
-private fun actionLabel(action: ResultAction): String = when (action) {
+private fun actionLabel(action: ResultAction, nextAgv: Int?): String = when (action) {
+    ResultAction.NextAgv -> "다음 호기 (${nextAgv ?: "-"})"
     ResultAction.Retry -> "다시 시도"
     ResultAction.Console -> "콘솔 보기"
     ResultAction.Reboot -> "재부팅"

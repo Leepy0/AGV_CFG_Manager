@@ -174,8 +174,15 @@ fun BoardsContent(
                     }
                 }
                 BoardsView.Content -> LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(ui.rows, key = { it.address }) { row ->
-                        BoardRowItem(row = row, nowMs = ui.nowMs, onClick = { onRowClick(row) })
+                    items(ui.arrangedRows(), key = { it.address }) { row ->
+                        val key = row.address.uppercase()
+                        BoardRowItem(
+                            row = row,
+                            nowMs = ui.nowMs,
+                            historyAgv = ui.historyAgv[key],
+                            done = key in ui.doneAddresses,
+                            onClick = { onRowClick(row) },
+                        )
                         HorizontalDivider()
                     }
                     item {
@@ -188,6 +195,15 @@ fun BoardsContent(
                     }
                 }
             }
+        }
+
+        ui.batchBanner?.let { banner ->
+            Text(
+                banner,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth().padding(vertical = AgvSpacing.S),
+            )
         }
 
         ui.notice?.let {
@@ -221,9 +237,9 @@ fun BoardsContent(
     }
 }
 
-/** 한 줄: 신호 막대 · 이름 · 설정 표식 · dBm. 5초 이상 안 보이면 흐리게. */
+/** 한 줄: 신호 막대 · 이름 · 설정 표식 · 이력 표식 · 완료 표식 · dBm. 5초 이상 안 보이면 흐리게. */
 @Composable
-fun BoardRowItem(row: BoardRow, nowMs: Long, onClick: () -> Unit) {
+fun BoardRowItem(row: BoardRow, nowMs: Long, historyAgv: Int?, done: Boolean, onClick: () -> Unit) {
     val stale = row.isStale(nowMs)
     val grade = SignalGrade.of(row.rssi)
     val setupText = when (val number = row.agvNumber) {
@@ -233,6 +249,8 @@ fun BoardRowItem(row: BoardRow, nowMs: Long, onClick: () -> Unit) {
     }
     val subtitle = buildString {
         append(setupText)
+        historyAgv?.let { append(" · 이력: ${"%02d".format(it)}호기") }
+        if (done) append(" · 완료")
         append(" · ${row.rssi} dBm · ${grade.label}")
         if (stale) append(" · 오래됨")
     }

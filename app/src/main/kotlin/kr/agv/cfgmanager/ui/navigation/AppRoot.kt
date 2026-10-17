@@ -1,13 +1,14 @@
 package kr.agv.cfgmanager.ui.navigation
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -15,8 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -36,14 +37,23 @@ import kr.agv.cfgmanager.ui.boards.BoardsRoute
 import kr.agv.cfgmanager.ui.components.ConnectionChip
 import kr.agv.cfgmanager.ui.config.SettingsRoute
 import kr.agv.cfgmanager.ui.diagnostics.DiagnosticsRoute
+import kr.agv.cfgmanager.ui.history.HistoryRoute
+import kr.agv.cfgmanager.ui.library.LibraryRoute
+import kr.agv.cfgmanager.ui.more.MoreScreen
+import kr.agv.cfgmanager.ui.profiles.ProfileEditRoute
+import kr.agv.cfgmanager.ui.profiles.ProfileListRoute
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
-import androidx.compose.runtime.getValue
 
+/**
+ * 앱 루트. 하단 탭 4개 + 그 밖의 보조 화면(더보기 · 프로필 · 프로필 편집 · SSID 라이브러리).
+ * 보조 화면은 뒤로 가기 버튼을 쓰고 하단 탭을 숨긴다. ⚙ 는 탭 화면의 상단 메뉴에 있다.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppRoot(container: AppContainer) {
     val navController = rememberNavController()
-    val currentDestination = navController.currentBackStackEntryAsState().value?.destination
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val isTab = TopLevelDestination.entries.any { it.route == currentRoute }
     val sessionState by container.session.state.collectAsStateWithLifecycle()
     val applyState by container.apply.state.collectAsStateWithLifecycle()
     val nowMs by produceState(System.currentTimeMillis()) {
@@ -63,17 +73,38 @@ fun AppRoot(container: AppContainer) {
     }
 
     val openTab: (TopLevelDestination) -> Unit = { destination ->
+        // 보드 탭으로 돌아가면 연속 세팅은 읽은 보드를 버리고 목록 상태로 간다 (7.3).
+        if (destination == TopLevelDestination.Boards) container.batch.backToList()
         navController.navigate(destination.route) {
             popUpTo(navController.graph.startDestinationId) { saveState = true }
             launchSingleTop = true
             restoreState = true
         }
     }
+    val push: (String) -> Unit = { route ->
+        navController.navigate(route) { launchSingleTop = true }
+    }
 
     Scaffold(
         topBar = {
             Column {
-                TopAppBar(title = { Text(stringResource(R.string.app_name)) })
+                TopAppBar(
+                    title = { Text(if (isTab) stringResource(R.string.app_name) else subScreenTitle(currentRoute)) },
+                    navigationIcon = {
+                        if (!isTab) {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
+                            }
+                        }
+                    },
+                    actions = {
+                        if (isTab) {
+                            IconButton(onClick = { push("more") }) {
+                                Icon(Icons.Filled.Settings, contentDescription = "보조 메뉴 (프로필 · SSID 라이브러리)")
+                            }
+                        }
+                    },
+                )
                 ConnectionChip(
                     chip = chip,
                     modifier = Modifier
@@ -83,14 +114,17 @@ fun AppRoot(container: AppContainer) {
             }
         },
         bottomBar = {
-            NavigationBar {
-                TopLevelDestination.entries.forEach { destination ->
-                    NavigationBarItem(
-                        selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true,
-                        onClick = { openTab(destination) },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) },
-                    )
+            if (isTab) {
+                NavigationBar {
+                    TopLevelDestination.entries.forEach { destination ->
+                        NavigationBarItem(
+                            selected = navController.currentBackStackEntryAsState().value?.destination?.hierarchy
+                                ?.any { it.route == destination.route } == true,
+                            onClick = { openTab(destination) },
+                            icon = { Icon(destination.icon, contentDescription = destination.label) },
+                            label = { Text(destination.label) },
+                        )
+                    }
                 }
             }
         },
@@ -108,28 +142,45 @@ fun AppRoot(container: AppContainer) {
                     container = container,
                     onOpenConsole = { openTab(TopLevelDestination.Diagnostics) },
                     onOpenBoards = { openTab(TopLevelDestination.Boards) },
+                    onEditProfile = { id -> push(if (id == null) "profile/new" else "profile/$id") },
                 )
             }
             composable(TopLevelDestination.Diagnostics.route) {
                 DiagnosticsRoute(container = container)
             }
             composable(TopLevelDestination.History.route) {
-                PlaceholderScreen(TopLevelDestination.History.label)
+                HistoryRoute(container = container, onFilled = { openTab(TopLevelDestination.Settings) })
+            }
+            composable(ROUTE_MORE) {
+                MoreScreen(onOpenProfiles = { push(ROUTE_PROFILES) }, onOpenLibrary = { push(ROUTE_LIBRARY) })
+            }
+            composable(ROUTE_PROFILES) {
+                ProfileListRoute(container = container, onOpenProfile = { id -> push("profile/${id ?: "new"}") })
+            }
+            composable("profile/{id}") { entry ->
+                val id = entry.arguments?.getString("id") ?: "new"
+                ProfileEditRoute(
+                    container = container,
+                    profileId = id.takeIf { it != "new" },
+                    onBack = { navController.popBackStack() },
+                    onOpenProfile = { next -> push("profile/$next") },
+                )
+            }
+            composable(ROUTE_LIBRARY) {
+                LibraryRoute(container = container)
             }
         }
     }
 }
 
-/** 아직 만들지 않은 탭 (Phase 4). */
-@Composable
-private fun PlaceholderScreen(label: String) {
-    Box(
-        modifier = Modifier.fillMaxSize().padding(AgvSpacing.L),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "$label · 준비 중",
-            style = MaterialTheme.typography.titleMedium,
-        )
-    }
+private const val ROUTE_MORE = "more"
+private const val ROUTE_PROFILES = "profiles"
+private const val ROUTE_LIBRARY = "library"
+
+private fun subScreenTitle(route: String?): String = when {
+    route == ROUTE_MORE -> "보조 메뉴"
+    route == ROUTE_PROFILES -> "프로필"
+    route == ROUTE_LIBRARY -> "SSID 라이브러리"
+    route?.startsWith("profile/") == true -> "프로필 편집"
+    else -> ""
 }

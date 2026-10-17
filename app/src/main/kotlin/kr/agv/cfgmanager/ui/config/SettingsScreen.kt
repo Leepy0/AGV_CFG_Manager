@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
@@ -25,6 +24,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,28 +37,34 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.launch
 import kr.agv.cfgmanager.AppContainer
 import kr.agv.cfgmanager.BuildConfig
 import kr.agv.cfgmanager.apply.ApplyUi
 import kr.agv.cfgmanager.apply.ResultAction
 import kr.agv.cfgmanager.core.bridge.BridgeConfig
+import kr.agv.cfgmanager.core.bridge.CfgState
 import kr.agv.cfgmanager.core.bridge.ConfigKey
+
 import kr.agv.cfgmanager.ui.components.PrimaryActionButton
 import kr.agv.cfgmanager.ui.components.SectionTitle
 import kr.agv.cfgmanager.ui.theme.AgvSizes
@@ -65,12 +72,16 @@ import kr.agv.cfgmanager.ui.theme.AgvSpacing
 import kr.agv.cfgmanager.ui.theme.AgvStepperText
 import kr.agv.cfgmanager.ui.theme.AgvTheme
 
-/** 설정 탭. 상태에 따라 폼 · 진행 패널 · 결과 카드 중 하나를 보인다 (docs/DEVELOPMENT_PLAN.md 5.3). */
+/**
+ * 설정 탭. 상태에 따라 폼 · 진행 패널 · 결과 카드 중 하나를 보인다 (docs/DEVELOPMENT_PLAN.md 5.3).
+ * [onEditProfile] 은 선택한 프로필의 편집 화면을 연다 (null 이면 프로필 목록).
+ */
 @Composable
 fun SettingsRoute(
     container: AppContainer,
     onOpenConsole: () -> Unit,
     onOpenBoards: () -> Unit,
+    onEditProfile: (String?) -> Unit,
 ) {
     val vm: SettingsViewModel = viewModel(factory = viewModelFactory {
         initializer { SettingsViewModel(container) }
@@ -88,8 +99,13 @@ fun SettingsRoute(
                 is ApplyUi.Done -> ResultPanel(
                     done = a,
                     notice = ui.notice,
+                    nextAgv = ui.batchNextAgv,
                     onAction = { action ->
                         when (action) {
+                            ResultAction.NextAgv -> {
+                                vm.dismissResult()
+                                onOpenBoards()
+                            }
                             ResultAction.Retry -> vm.retryApply()
                             ResultAction.Console -> onOpenConsole()
                             ResultAction.Reboot -> vm.reboot()
@@ -99,7 +115,7 @@ fun SettingsRoute(
                         }
                     },
                 )
-                ApplyUi.Idle -> FormBody(ui, vm, container, onOpenBoards)
+                ApplyUi.Idle -> FormBody(ui, vm, container, onOpenBoards, onEditProfile)
             }
         }
         if (ui.apply is ApplyUi.Idle) {
@@ -109,7 +125,13 @@ fun SettingsRoute(
 }
 
 @Composable
-private fun FormBody(ui: SettingsUi, vm: SettingsViewModel, container: AppContainer, onOpenBoards: () -> Unit) {
+private fun FormBody(
+    ui: SettingsUi,
+    vm: SettingsViewModel,
+    container: AppContainer,
+    onOpenBoards: () -> Unit,
+    onEditProfile: (String?) -> Unit,
+) {
     val draft = ui.draft
     Column(
         modifier = Modifier
@@ -119,9 +141,14 @@ private fun FormBody(ui: SettingsUi, vm: SettingsViewModel, container: AppContai
         verticalArrangement = Arrangement.spacedBy(AgvSpacing.M),
     ) {
         Spacer(modifier = Modifier.size(AgvSpacing.S))
+        ProfileRow(ui, vm, onEditProfile)
         ui.linkNote?.let { note ->
             NoticeLine(note, isError = false)
         }
+        if (ui.batch.enabled) {
+            BatchLine(ui)
+        }
+        ui.batchAdvice?.let { advice -> BatchAdviceBlock(advice, vm) }
         ui.notice?.let { NoticeLine(it, isError = true) }
         if (draft == null) {
             Text(
@@ -144,6 +171,16 @@ private fun FormBody(ui: SettingsUi, vm: SettingsViewModel, container: AppContai
         SectionTitle("네트워크")
         IpModeRow(ui, vm, editable)
         ConfigInput(ui, vm, ConfigKey.IP, "IP", editable && draft.ipMode == IpMode.Manual, KeyboardType.Decimal, device = deviceText(ui, ConfigKey.IP))
+        ui.ruleMismatchIp?.let { ruleIp ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                NoticeLine("규칙과 다름 · 규칙값 $ruleIp", isError = false)
+                TextButton(
+                    onClick = { vm.useRuleIp() },
+                    enabled = editable,
+                    modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
+                ) { Text("규칙값으로") }
+            }
+        }
         if (draft.ipMode == IpMode.Dhcp) {
             NoticeLine(
                 "게이트웨이는 고정 IP 권장 (ACS agvOpCtrl 과 일치해야 함). DHCP 를 쓰면 DHCP 서버에서 IP 를 예약하세요.",
@@ -199,7 +236,77 @@ private fun FormBody(ui: SettingsUi, vm: SettingsViewModel, container: AppContai
     }
 }
 
-/** 호기 번호: 28sp 숫자 칸과 −/+. 숫자 자판. */
+/** 프로필 선택(드롭다운) + [편집]. 프로필을 고르면 호기 번호만 남기고 값을 채운다 (F-E4). */
+@Composable
+private fun ProfileRow(ui: SettingsUi, vm: SettingsViewModel, onEditProfile: (String?) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("프로필", style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(AgvSizes.LabelColumn))
+        Box(modifier = Modifier.weight(1f)) {
+            OutlinedButton(
+                onClick = { menuOpen = true },
+                enabled = ui.profiles.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+            ) {
+                Text(
+                    ui.selectedProfile?.name ?: if (ui.profiles.isEmpty()) "불러오는 중" else "프로필 선택",
+                    modifier = Modifier.weight(1f),
+                )
+                StatusIcon(Icons.Filled.KeyboardArrowDown, MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                ui.profiles.forEach { profile ->
+                    DropdownMenuItem(
+                        text = { Text(profile.name) },
+                        onClick = {
+                            menuOpen = false
+                            vm.selectProfile(profile.id)
+                        },
+                    )
+                }
+            }
+        }
+        TextButton(
+            onClick = { onEditProfile(ui.selectedProfile?.id) },
+            modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
+        ) { Text("편집") }
+    }
+}
+
+/** 연속 세팅 진행 줄: 다음 호기와 프로필. 배너 문구는 보드 탭과 같다 (5.2). */
+@Composable
+private fun BatchLine(ui: SettingsUi) {
+    val next = ui.batchNextAgv
+    val profile = ui.batch.profileName
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        StatusIcon(Icons.Filled.Info, MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.width(AgvSpacing.Xxs))
+        Text(
+            "연속 세팅 · 다음: ${next ?: "-"}호기${profile?.let { " · $it" }.orEmpty()}",
+            style = MaterialTheme.typography.titleSmall,
+        )
+    }
+}
+
+/** 이미 설정된 보드 경고 (F-B2). 자동 채움은 멈춘 상태이고 [덮어쓰기] 를 눌러야 채운다. */
+@Composable
+private fun BatchAdviceBlock(advice: CfgState, vm: SettingsViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(AgvSpacing.Xxs)) {
+        NoticeLine(
+            "이미 설정된 보드입니다 (설정 상태: ${if (advice == CfgState.TRIAL) "확인 대기" else "저장됨"}). 자동 채움을 멈췄습니다. 덮어쓰려면 [덮어쓰기] 를 누르세요.",
+            isError = true,
+        )
+        OutlinedButton(
+            onClick = { vm.overwriteBatch() },
+            modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+        ) { Text("덮어쓰기") }
+    }
+}
+
+/** 호기 번호: 28sp 숫자 칸과 −/+. 숫자 자판. 다음 번호 제안(이력 기준)을 함께 보인다. */
 @Composable
 private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolean) {
     val draft = ui.draft ?: return
@@ -215,7 +322,7 @@ private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolea
             ) { Text("−", style = MaterialTheme.typography.titleLarge) }
             OutlinedTextField(
                 value = agvText,
-                onValueChange = { vm.setValue(ConfigKey.AGV, it.filter(Char::isDigit).take(2)) },
+                onValueChange = { vm.setValue(ConfigKey.AGV, it) },
                 enabled = editable,
                 singleLine = true,
                 textStyle = AgvStepperText.copy(textAlign = TextAlign.Center),
@@ -242,6 +349,18 @@ private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolea
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        ui.nextAgvHint?.let { hint ->
+            if (hint.toString() != agvText) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    NoticeLine("이 프로필의 다음 번호 제안: ${"%02d".format(hint)}호기", isError = false)
+                    TextButton(
+                        onClick = { vm.setAgvHint(hint) },
+                        enabled = editable,
+                        modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
+                    ) { Text("${hint}호기로") }
+                }
+            }
+        }
         FieldMessageLine(message)
     }
 }
@@ -249,16 +368,37 @@ private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolea
 @Composable
 private fun SsidField(ui: SettingsUi, vm: SettingsViewModel, editable: Boolean) {
     val draft = ui.draft ?: return
+    var menuOpen by remember { mutableStateOf(false) }
     FieldBlock(ui, ConfigKey.SSID, "SSID (Wi-Fi 이름)") {
-        OutlinedTextField(
-            value = draft.raw(ConfigKey.SSID),
-            onValueChange = { vm.setValue(ConfigKey.SSID, it) },
-            enabled = editable,
-            singleLine = true,
-            keyboardOptions = textOptions(KeyboardType.Ascii),
-            isError = ui.check?.messageFor(ConfigKey.SSID)?.isError == true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedTextField(
+                value = draft.raw(ConfigKey.SSID),
+                onValueChange = { vm.setSsidText(it) },
+                enabled = editable,
+                singleLine = true,
+                keyboardOptions = textOptions(KeyboardType.Ascii),
+                isError = ui.check?.messageFor(ConfigKey.SSID)?.isError == true,
+                modifier = Modifier.weight(1f),
+            )
+            Box {
+                TextButton(
+                    onClick = { menuOpen = true },
+                    enabled = editable && ui.networkSsids.isNotEmpty(),
+                    modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
+                ) { Text("목록") }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    ui.networkSsids.forEach { ssid ->
+                        DropdownMenuItem(
+                            text = { Text(ssid) },
+                            onClick = {
+                                menuOpen = false
+                                vm.setSsidText(ssid)
+                            },
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -267,24 +407,35 @@ private fun PasswordField(ui: SettingsUi, vm: SettingsViewModel, editable: Boole
     val draft = ui.draft ?: return
     val show = ui.showPassword
     FieldBlock(ui, ConfigKey.PASS, "비밀번호", deviceOverride = deviceText(ui, ConfigKey.PASS)) {
-        OutlinedTextField(
-            value = draft.raw(ConfigKey.PASS),
-            onValueChange = { vm.setValue(ConfigKey.PASS, it) },
-            enabled = editable,
-            singleLine = true,
-            placeholder = { Text("비우면 장치 비밀번호 유지") },
-            visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = textOptions(if (show) KeyboardType.Ascii else KeyboardType.Password),
-            trailingIcon = {
-                TextButton(
-                    onClick = { vm.togglePassword() },
-                    enabled = editable,
-                    modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
-                ) { Text(if (show) "숨기기" else "보기") }
-            },
-            isError = ui.check?.messageFor(ConfigKey.PASS)?.isError == true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(AgvSpacing.Xxs)) {
+            OutlinedTextField(
+                value = draft.raw(ConfigKey.PASS),
+                onValueChange = { vm.setValue(ConfigKey.PASS, it) },
+                enabled = editable,
+                singleLine = true,
+                placeholder = { Text("비우면 장치 비밀번호 유지 · - 는 오픈 AP") },
+                visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = textOptions(if (show) KeyboardType.Ascii else KeyboardType.Password),
+                trailingIcon = {
+                    TextButton(
+                        onClick = { vm.togglePassword() },
+                        enabled = editable,
+                        modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
+                    ) { Text(if (show) "숨기기" else "보기") }
+                },
+                isError = ui.check?.messageFor(ConfigKey.PASS)?.isError == true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                modifier = Modifier
+                    .heightIn(min = AgvSizes.TouchMin)
+                    .clickable(role = Role.Checkbox, enabled = editable) { vm.setRememberPassword(!ui.rememberPassword) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = ui.rememberPassword, onCheckedChange = null, enabled = editable)
+                Text("이 비밀번호 저장 (적용 성공 시 SSID 라이브러리에)", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
     }
 }
 
@@ -294,12 +445,16 @@ private fun IpModeRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolean) 
     Column(verticalArrangement = Arrangement.spacedBy(AgvSpacing.Xxs)) {
         Text("IP 모드", style = MaterialTheme.typography.labelLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(AgvSpacing.S), verticalAlignment = Alignment.CenterVertically) {
-            ModeOption("규칙", draft.ipMode == IpMode.Rule, enabled = false) { }
+            ModeOption("규칙", draft.ipMode == IpMode.Rule, enabled = editable && ui.ruleAvailable) { vm.setIpMode(IpMode.Rule) }
             ModeOption("DHCP", draft.ipMode == IpMode.Dhcp, enabled = editable) { vm.setIpMode(IpMode.Dhcp) }
             ModeOption("직접", draft.ipMode == IpMode.Manual, enabled = editable) { vm.setIpMode(IpMode.Manual) }
         }
         Text(
-            "규칙(호기 번호로 IP 계산)은 프로필을 만든 뒤 쓸 수 있습니다.",
+            if (ui.ruleAvailable) {
+                "규칙: 호기 번호로 IP 를 계산합니다${ui.ruleIp?.let { " (지금 $it)" }.orEmpty()}."
+            } else {
+                "규칙(호기 번호로 IP 계산)은 규칙이 있는 프로필을 고르면 쓸 수 있습니다."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -445,15 +600,9 @@ private fun BottomBar(ui: SettingsUi, vm: SettingsViewModel) {
             verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
         ) {
             Text(summary, style = MaterialTheme.typography.titleSmall)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = AgvSizes.TouchMin)
-                    .clickable(role = Role.Checkbox, enabled = ui.linked) { vm.setSaveOnly(!ui.saveOnly) },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(checked = ui.saveOnly, onCheckedChange = null, enabled = ui.linked)
-                Text("저장만 (재부팅은 나중에)", style = MaterialTheme.typography.bodyMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(AgvSpacing.L)) {
+                CheckLine("저장만 (재부팅은 나중에)", ui.saveOnly, enabled = ui.linked) { vm.setSaveOnly(!ui.saveOnly) }
+                CheckLine("연속 모드", ui.batch.enabled, enabled = ui.draft != null) { vm.setBatch(!ui.batch.enabled) }
             }
             PrimaryActionButton(
                 text = if (ui.saveOnly) "저장만" else "적용 (저장 후 재부팅)",
@@ -461,6 +610,19 @@ private fun BottomBar(ui: SettingsUi, vm: SettingsViewModel) {
                 enabled = ui.canApply,
             )
         }
+    }
+}
+
+@Composable
+private fun CheckLine(label: String, checked: Boolean, enabled: Boolean, onToggle: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .heightIn(min = AgvSizes.TouchMin)
+            .clickable(role = Role.Checkbox, enabled = enabled, onClick = onToggle),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
+        Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

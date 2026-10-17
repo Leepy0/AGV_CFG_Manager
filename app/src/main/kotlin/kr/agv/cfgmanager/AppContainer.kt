@@ -5,8 +5,14 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.SupervisorJob
 import kr.agv.cfgmanager.apply.ApplyRunner
+import kr.agv.cfgmanager.batch.BatchController
+import kr.agv.cfgmanager.data.KeystoreCipher
+import kr.agv.cfgmanager.data.NetworkStore
+import kr.agv.cfgmanager.data.ProfileStore
+import kr.agv.cfgmanager.prefill.FormPrefill
 import kr.agv.cfgmanager.ble.BleBoardSource
 import kr.agv.cfgmanager.ble.BlePreflightProbe
 import kr.agv.cfgmanager.ble.BleScanner
@@ -51,13 +57,46 @@ class AppContainer(context: Context) {
     /** 작업 이력 (`filesDir/history.jsonl`, 추가만). */
     val history = HistoryStore(File(appContext.filesDir, HISTORY_FILE))
 
-    /** 적용 실행기. 진행 상태와 결과를 쥐고 있어 회전 뒤에도 진행 패널이 복원된다. */
-    val apply = ApplyRunner(session, history, appScope, isFake = { boards.isFake })
+    /** 프로필 (`filesDir/profiles.json`). 첫 실행이면 본사 기본 프로필을 만든다 ([init] 에서 읽는다). */
+    val profiles = ProfileStore(File(appContext.filesDir, PROFILE_FILE))
+
+    /** SSID 라이브러리 (`filesDir/networks.json`, 비밀번호는 Keystore 로 암호화). */
+    val networks = NetworkStore(File(appContext.filesDir, NETWORK_FILE), KeystoreCipher())
+
+    /**
+     * 적용 실행기. 진행 상태와 결과를 쥐고 있어 회전 뒤에도 진행 패널이 복원된다.
+     * 성공하면 마지막 프로필 사용 시각을 갱신하고, 저장을 허락한 SSID · 비밀번호를 라이브러리에 남긴다.
+     */
+    val apply = ApplyRunner(
+        session = session,
+        history = history,
+        scope = appScope,
+        isFake = { boards.isFake },
+        onSucceeded = { meta, target ->
+            meta.profileId?.let { profiles.markUsed(it) }
+            if (meta.rememberWifi) networks.remember(target.ssid, target.pass)
+        },
+    )
+
+    /** 연속 세팅 상태 (앱 수명 동안 유지). */
+    val batch = BatchController(apply.state, appScope)
+
+    /** 이력 등 다른 화면이 설정 탭 폼을 채울 때 쓰는 요청 전달. */
+    val prefill = FormPrefill()
+
+    init {
+        appScope.launch {
+            profiles.load()
+            networks.load()
+        }
+    }
 
     /** 현재 연결 방식이 가짜인지 (화면 문구 · 권한 검사 건너뛰기). */
     fun isFakeMode(): Boolean = boards.isFake
 
     private companion object {
         const val HISTORY_FILE = "history.jsonl"
+        const val PROFILE_FILE = "profiles.json"
+        const val NETWORK_FILE = "networks.json"
     }
 }

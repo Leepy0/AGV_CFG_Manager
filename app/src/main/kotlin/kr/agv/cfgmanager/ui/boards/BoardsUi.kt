@@ -4,9 +4,6 @@ import kr.agv.cfgmanager.session.BoardRow
 import kr.agv.cfgmanager.session.ConnectFailure
 import kr.agv.cfgmanager.session.ConnectStage
 
-/** 기본 BLE 비밀번호 (브리지 빌드 기본값). 프로필은 Phase 4 에서 추가된다. */
-const val DEFAULT_BLE_PASSWORD = "agvsetup"
-
 /** 스캔 진행 상태. */
 enum class ScanState { Idle, Scanning, Done }
 
@@ -21,10 +18,10 @@ sealed interface ScanError {
 /** 보드 탭의 화면 상태 4가지 (Loading / Empty / Error / Content). */
 enum class BoardsView { Loading, Empty, Error, Content }
 
-/** 연결 시트. [stage] 는 진행 중 단계, [failure] 는 마지막 실패. */
+/** 연결 시트. [stage] 는 진행 중 단계, [failure] 는 마지막 실패. [password] 는 활성 프로필의 BLE 비밀번호로 시작한다. */
 data class ConnectSheet(
     val row: BoardRow,
-    val password: String = DEFAULT_BLE_PASSWORD,
+    val password: String = "",
     val busy: Boolean = false,
     val stage: ConnectStage? = null,
     val failure: ConnectFailure? = null,
@@ -38,6 +35,12 @@ data class BoardsUi(
     val error: ScanError? = null,
     val notice: String? = null,
     val sheet: ConnectSheet? = null,
+    /** 연속 세팅에서 이미 끝낸 보드의 BLE 주소(대문자). "완료" 표식. */
+    val doneAddresses: Set<String> = emptySet(),
+    /** BLE 주소(대문자) → 이력에 마지막으로 저장된 호기. "이력: 07호기" 표식. */
+    val historyAgv: Map<String, Int> = emptyMap(),
+    /** 연속 세팅이 켜져 있을 때 상단 배너 ("다음: 8호기 · 본사 1공장"). */
+    val batchBanner: String? = null,
 ) {
     val view: BoardsView
         get() = when {
@@ -46,6 +49,18 @@ data class BoardsUi(
             scanState == ScanState.Scanning -> BoardsView.Loading
             else -> BoardsView.Empty
         }
+
+    /** 보이는 순서: 끝낸 보드는 맨 아래, 설정 없는 보드(01 이고 이력 없음)는 위, 그다음 신호 강한 순. */
+    fun arrangedRows(): List<BoardRow> = rows.sortedWith(
+        compareBy<BoardRow>(
+            { it.address.uppercase() in doneAddresses },
+            { !isUnset(it) },
+            { -it.rssi },
+        ),
+    )
+
+    fun isUnset(row: BoardRow): Boolean =
+        historyAgv[row.address.uppercase()] == null && (row.agvNumber == null || row.agvNumber == 1)
 }
 
 /** 스캔 오류 문구 (무엇 · 왜 · 다음 행동). 예외 원문은 넣지 않는다. */

@@ -3,6 +3,7 @@ package kr.agv.cfgmanager.ui.config
 import kr.agv.cfgmanager.core.bridge.BridgeConfig
 import kr.agv.cfgmanager.core.bridge.ConfigKey
 import kr.agv.cfgmanager.core.bridge.ConfigValidator
+import kr.agv.cfgmanager.core.bridge.ValidationContext
 import kr.agv.cfgmanager.core.bridge.ValidationSeverity
 import kr.agv.cfgmanager.core.util.Ipv4
 
@@ -77,10 +78,23 @@ object ConfigForm {
         if (key == ConfigKey.SSID || key == ConfigKey.PASS) text else text.trim()
     }
 
-    /** 코어 검증 + 앱 추가 검사 (F-E3: IP 가 GW · 서버와 같지 않은지, 마지막 옥텟 0/255 경고). */
-    fun check(draft: ConfigDraft): FormCheck {
-        val report = ConfigValidator.validate(validatorInput(draft))
+    /**
+     * 코어 검증 + 앱 추가 검사 (F-E3: IP 가 GW · 서버와 같지 않은지, 마지막 옥텟 0/255 경고).
+     * [context.takenAgv] 는 이력에서 온 "다른 보드가 쓴 호기" 경고다. [passwordRequired] 면 비밀번호 칸에 오류를 붙인다 (F-E5).
+     */
+    fun check(
+        draft: ConfigDraft,
+        context: ValidationContext = ValidationContext(),
+        passwordRequired: Boolean = false,
+    ): FormCheck {
+        val report = ConfigValidator.validate(validatorInput(draft), context)
         val messages = report.messages.map { FieldMessage(it.key, it.severity == ValidationSeverity.Error, it.text) }.toMutableList()
+        if (passwordRequired) {
+            messages += FieldMessage(
+                ConfigKey.PASS, true,
+                "이 SSID 의 비밀번호가 SSID 라이브러리에 없습니다. 비밀번호를 입력하거나 - (오픈 AP) 를 입력하세요.",
+            )
+        }
         val ip = draft.raw(ConfigKey.IP).trim()
         if (ip != DHCP && ip.isNotEmpty()) {
             val canonical = Ipv4.canonical(ip)

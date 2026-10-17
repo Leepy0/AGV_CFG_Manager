@@ -7,7 +7,8 @@ import kr.agv.cfgmanager.core.workflows.ApplyResult
 import kr.agv.cfgmanager.core.workflows.ApplyStep
 
 /** 결과 카드의 다음 행동. 버튼 문구와 동작은 화면에서 정한다. */
-enum class ResultAction { Retry, Console, Reboot, Boards, CloseSetup, Dismiss }
+/** [NextAgv]: 연속 모드에서 다음 호기로 (보드 탭으로 돌아가며 번호를 넘긴다). */
+enum class ResultAction { NextAgv, Retry, Console, Reboot, Boards, CloseSetup, Dismiss }
 
 /** 결과 카드 한 장의 문구. 무엇 · 왜 · 다음 행동 (docs/DEVELOPMENT_PLAN.md 9). */
 data class ResultView(
@@ -32,20 +33,29 @@ object ApplyMessages {
         ApplyStep.Done -> "완료"
     }
 
-    fun view(result: ApplyResult): ResultView = when (val outcome = result.outcome) {
+    /** [nextAgv] 가 있으면 연속 모드 중이다. 성공 카드의 기본 버튼은 [ResultAction.NextAgv] 가 된다. */
+    fun view(result: ApplyResult, nextAgv: Int? = null): ResultView = when (val outcome = result.outcome) {
         ApplyOutcome.Applied -> ResultView(
             title = "적용 완료",
             step = null,
             cause = "저장하고 재부팅했으며 Wi-Fi 에 연결됐습니다.",
             success = true,
-            actions = listOf(ResultAction.CloseSetup, ResultAction.Dismiss),
+            actions = if (nextAgv != null) {
+                listOf(ResultAction.NextAgv, ResultAction.CloseSetup, ResultAction.Dismiss)
+            } else {
+                listOf(ResultAction.CloseSetup, ResultAction.Dismiss)
+            },
         )
         ApplyOutcome.SavedOnly -> ResultView(
             title = "저장했습니다 (재부팅 안 함)",
             step = null,
             cause = "재부팅해야 새 설정으로 동작합니다.",
             success = true,
-            actions = listOf(ResultAction.Reboot, ResultAction.Dismiss),
+            actions = if (nextAgv != null) {
+                listOf(ResultAction.NextAgv, ResultAction.Reboot, ResultAction.Dismiss)
+            } else {
+                listOf(ResultAction.Reboot, ResultAction.Dismiss)
+            },
         )
         ApplyOutcome.NoChange -> ResultView(
             title = "바뀐 값이 없습니다",
