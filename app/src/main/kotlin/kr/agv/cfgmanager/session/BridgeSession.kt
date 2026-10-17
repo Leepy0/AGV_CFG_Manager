@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import kr.agv.cfgmanager.core.bridge.BridgeChannelException
 import kr.agv.cfgmanager.core.bridge.BridgeCommands
 import kr.agv.cfgmanager.core.bridge.BridgeStatus
+import kr.agv.cfgmanager.core.bridge.ChannelKind
 import kr.agv.cfgmanager.core.bridge.ChannelState
 import kr.agv.cfgmanager.core.bridge.DeviceSnapshot
 import kr.agv.cfgmanager.core.bridge.IBridgeChannel
@@ -323,9 +324,11 @@ class BridgeSession(
                 publishConsole()
             }
         }
-        // 연결 안의 로그인은 채널 내부에서 일어나므로, 같은 형식으로 콘솔에 남긴다 (값은 가려진다).
-        log.sent(BridgeCommands.login(t.password), clock())
-        publishConsole()
+        // 연결 안의 로그인은 채널 내부에서 일어나므로, 같은 형식으로 콘솔에 남긴다 (값은 가려진다). USB 는 로그인이 없다.
+        if (raw.kind != ChannelKind.UsbSerial) {
+            log.sent(BridgeCommands.login(t.password), clock())
+            publishConsole()
+        }
         val ready = try {
             raw.waitReady(timeout)
         } catch (cancelled: CancellationException) {

@@ -127,7 +127,8 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
     /** 연결 · 로그인 · 읽기. 성공하면 시트를 닫고 [connected] 를 한 번 보낸다. 연속 세팅 중이면 읽기 결과를 알린다. */
     fun connect() {
         val sheet = _ui.value.sheet ?: return
-        if (connectJob?.isActive == true || sheet.password.isEmpty()) return
+        // USB 콘솔은 로그인이 없으므로 비밀번호를 묻지 않는다.
+        if (connectJob?.isActive == true || (!sheet.row.isUsb && sheet.password.isEmpty())) return
         connectJob = viewModelScope.launch {
             _ui.update { st -> st.copy(sheet = st.sheet?.copy(busy = true, stage = null, failure = null)) }
             batch.pick(sheet.row.address)

@@ -26,6 +26,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- OTG 시리얼 콘솔 (Phase 7). 없는 휴대폰도 설치되며, USB 가 없으면 보드 목록에 USB 행이 안 보인다. -->
+    <uses-feature
+        android:name="android.hardware.usb.host"
+        android:required="false" />
+
     <!-- 앱 내 업데이트(F-G3): 받은 APK 를 설치하려면 "알 수 없는 앱 설치" 허용이 필요하다. 허용은 설정에서 사용자가 한다. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
@@ -50,6 +55,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- OTG 시리얼 콘솔을 꽂으면 앱을 연다 (docs/DEVELOPMENT_PLAN.md 8.6). 목록은 res/xml/device_filter.xml. -->
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter" />
         </activity>
 
         <!-- 공유 시트용 임시 파일 (cache/share/). -->

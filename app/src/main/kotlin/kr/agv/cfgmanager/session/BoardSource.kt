@@ -1,10 +1,14 @@
 package kr.agv.cfgmanager.session
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kr.agv.cfgmanager.core.bridge.IBridgeChannel
 import kotlin.time.Duration
 
-/** 스캔으로 본 보드 한 줄. [lastSeenMs] 는 마지막으로 광고를 받은 시각(epoch ms). */
+/** USB 콘솔 주소의 접두어. BLE MAC 과 겹치지 않는다 (docs/DEVELOPMENT_PLAN.md 8.6). */
+const val USB_ADDRESS_PREFIX = "usb:"
+
+/** 스캔으로 본 보드 한 줄. [lastSeenMs] 는 마지막으로 광고를 받은 시각(epoch ms). USB 행은 [rssi] 를 0 으로 둔다. */
 data class BoardRow(
     val address: String,
     val name: String,
@@ -14,6 +18,10 @@ data class BoardRow(
     /** 이름의 호기 번호 (`AGVBR-07-A1B2` → 7). 형식이 다르면 null. */
     val agvNumber: Int?
         get() = BoardName.agvNumber(name)
+
+    /** USB 콘솔로 직결된 행인가. 신호 세기가 없고 로그인도 없다. */
+    val isUsb: Boolean
+        get() = address.startsWith(USB_ADDRESS_PREFIX)
 }
 
 /** 광고 이름 규칙 (docs/DEVELOPMENT_PLAN.md 3.2: `AGVBR-<호기 2자리>-<MAC 끝 4자리 hex>`). */
@@ -55,22 +63,34 @@ interface BoardSource {
     ): IBridgeChannel
 }
 
-/** 디버그 빌드의 "가짜 브리지" 설정에 따라 BLE 와 가짜 원천을 고른다. */
+/**
+ * 디버그 빌드의 "가짜 브리지" 설정에 따라 BLE 와 가짜 원천을 고른다.
+ * 실기 모드에서는 BLE 행 앞에 USB 행을 붙이고, USB 주소의 채널은 [usb] 가 만든다.
+ */
 class SwitchingBoardSource(
     private val ble: BoardSource,
     private val fake: BoardSource,
+    private val usb: BoardSource,
     private val useFake: () -> Boolean,
 ) : BoardSource {
     override val isFake: Boolean
         get() = useFake()
 
     override fun discover(duration: Duration): Flow<List<BoardRow>> =
-        (if (useFake()) fake else ble).discover(duration)
+        if (useFake()) {
+            fake.discover(duration)
+        } else {
+            combine(usb.discover(duration), ble.discover(duration)) { wired, wireless -> wired + wireless }
+        }
 
     override fun channel(
         address: String,
         name: String?,
         password: String,
         onStage: (ConnectStage) -> Unit,
-    ): IBridgeChannel = (if (useFake()) fake else ble).channel(address, name, password, onStage)
+    ): IBridgeChannel = when {
+        useFake() -> fake.channel(address, name, password, onStage)
+        address.startsWith(USB_ADDRESS_PREFIX) -> usb.channel(address, name, password, onStage)
+        else -> ble.channel(address, name, password, onStage)
+    }
 }

@@ -23,7 +23,7 @@ LANG=C.UTF-8 LC_ALL=C.UTF-8 ./gradlew :core:test :app:testDebugUnitTest :app:ass
 | 4 | 프로필(CRUD · IP 규칙 · 내보내기/가져오기 · 휴대폰 Wi-Fi 에서 가져오기) · SSID 라이브러리(Keystore 암호화) · 자동 채움 · 연속 세팅 · 이력 탭 | 341b1b4 | 154 / 102 | 완료 |
 | 5 | 빠른 명령 · 게이트웨이 도달 확인 · 공장 초기화 · QR · 앱 설정 · 로그 파일 · 정보 · 출장 준비 · 세션 요약 · NavigationSuiteScaffold | 156301b | 163 / 125 | 완료 |
 | 6 | 앱 내 업데이트(매니페스트 · 폴백 · 받기 · sha256 · 설치) · 릴리스 서명 · 정식 릴리스 CI · README 사용법 | 이 Phase 커밋 | 213 / 125 | 완료 (실기 12 미검증) |
-| 7 | USB OTG 시리얼 (선택) | – | – | 미착수 |
+| 7 | USB OTG 시리얼 (선택): 콘솔 채널 · 보드 목록 USB 행 · 로그인 없는 연결 | 이 Phase 커밋 | 217 / 125 | 완료 (실기 미검증) |
 
 전 Phase 에서 `allWarningsAsErrors=true` 로 경고 0, `:app:assembleDebug` 성공. 모든 테스트는 JVM(가짜 브리지)이며 **실기 · 에뮬레이터 검증은 하나도 하지 않았습니다**.
 

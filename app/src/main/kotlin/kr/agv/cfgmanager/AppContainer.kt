@@ -3,6 +3,7 @@ package kr.agv.cfgmanager
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.hardware.usb.UsbManager
 import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,7 @@ import kr.agv.cfgmanager.session.FakeRoster
 import kr.agv.cfgmanager.session.SwitchingBoardSource
 import kr.agv.cfgmanager.update.HttpUrlUpdateHttp
 import kr.agv.cfgmanager.update.UpdateActions
+import kr.agv.cfgmanager.usb.UsbBoardSource
 import java.io.File
 
 /**
@@ -87,10 +89,11 @@ class AppContainer(context: Context) {
 
     private val scanner = BleScanner(adapter)
 
-    /** 디버그 빌드에서 "가짜 브리지" 를 켜면 가짜 원천을 쓴다. 릴리스 빌드에서는 항상 BLE. */
+    /** 디버그 빌드에서 "가짜 브리지" 를 켜면 가짜 원천을 쓴다. 릴리스 빌드에서는 BLE 와 OTG USB 콘솔. */
     val boards: BoardSource = SwitchingBoardSource(
         ble = BleBoardSource(appContext, adapter, scanner) { settings.current.responseIdleMs },
         fake = FakeBoardSource(FakeRoster.create()) { System.currentTimeMillis() },
+        usb = UsbBoardSource(appContext, appContext.getSystemService(UsbManager::class.java)),
         useFake = { BuildConfig.DEBUG && settings.current.fakeBridge },
     )
 

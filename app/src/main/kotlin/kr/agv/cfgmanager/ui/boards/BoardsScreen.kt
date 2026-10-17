@@ -251,7 +251,7 @@ fun BoardRowItem(row: BoardRow, nowMs: Long, historyAgv: Int?, done: Boolean, on
         append(setupText)
         historyAgv?.let { append(" · 이력: ${"%02d".format(it)}호기") }
         if (done) append(" · 완료")
-        append(" · ${row.rssi} dBm · ${grade.label}")
+        if (row.isUsb) append(" · USB 직결") else append(" · ${row.rssi} dBm · ${grade.label}")
         if (stale) append(" · 오래됨")
     }
     Row(
@@ -333,7 +333,14 @@ fun ConnectSheetView(
             sheet.failure?.let { failure ->
                 FailureText(failure)
             }
-            if (!sheet.busy) {
+            if (sheet.row.isUsb && !sheet.busy) {
+                Text(
+                    "USB 케이블로 직접 연결합니다. 로그인은 필요 없습니다.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (!sheet.busy && !sheet.row.isUsb) {
                 OutlinedTextField(
                     value = sheet.password,
                     onValueChange = onPasswordChange,
@@ -366,7 +373,7 @@ fun ConnectSheetView(
                 PrimaryActionButton(
                     text = if (sheet.failure != null) "다시 시도" else "연결",
                     onClick = onConnect,
-                    enabled = sheet.password.isNotEmpty(),
+                    enabled = sheet.row.isUsb || sheet.password.isNotEmpty(),
                 )
             }
         }
