@@ -7,10 +7,10 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
@@ -24,6 +24,8 @@ import java.io.File
  * 화면 캡처 투어. CI 에뮬레이터에서 가짜 브리지로 앱을 한 바퀴 돌며 화면을 PNG 로 남긴다
  * (`.github/workflows/screenshots.yml`). 결과 파일은 앱 내부 저장소 `files/screenshots/` 에 쌓이고,
  * 워크플로가 `adb run-as` 로 가져와 artifact 로 올린다. 검증이 아니라 눈으로 보기 위한 것이다.
+ *
+ * 연결 시트나 대화상자가 떠 있으면 창(root)이 둘 이상이다. 창마다 `이름-windowN.png` 로 따로 남긴다.
  */
 class ScreenshotTourTest {
 
@@ -42,8 +44,10 @@ class ScreenshotTourTest {
 
     @Test
     fun tour() {
+        // 가짜 보드 중 가장 센 새 보드(-48dBm)가 뚜렷하므로 연결 시트가 자동으로 열린다 (자동 선택).
         waitForText("AGVBR-01")
-        shot("01-boards")
+        waitForText("BLE 비밀번호", timeoutMs = 20_000)
+        shot("01-boards-autopick")
 
         compose.onAllNodesWithText("AGVBR-01", substring = true)[0].performClick()
         waitForText("적용할 값")
@@ -83,7 +87,15 @@ class ScreenshotTourTest {
 
     private fun shot(name: String) {
         compose.waitForIdle()
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        val roots = compose.onAllNodes(isRoot())
+        val count = roots.fetchSemanticsNodes().size
+        for (index in 0 until count) {
+            val bitmap = roots[index].captureToImage().asAndroidBitmap()
+            save(if (index == 0) name else "$name-window$index", bitmap)
+        }
+    }
+
+    private fun save(name: String, bitmap: Bitmap) {
         val dir = File(app.filesDir, DIR).apply { mkdirs() }
         File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
