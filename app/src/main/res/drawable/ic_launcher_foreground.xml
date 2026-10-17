@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 앱 아이콘 전경: 게이트웨이(큰 육각) 하나에 AGV(작은 육각) 여러 대가 묶이는 모양. 안전 영역(가운데 66dp 원) 안에 둔다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#C6FF00"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M54,56 L54,68 M41.9,49 L31,49 L31,54 M66.1,49 L77,49 L77,54" />
+    <path
+        android:fillColor="#C6FF00"
+        android:pathData="M54,28 L66.1,35 L66.1,49 L54,56 L41.9,49 L41.9,35 Z" />
+    <path
+        android:fillColor="#C6FF00"
+        android:pathData="M31,54 L37.9,58 L37.9,66 L31,70 L24.1,66 L24.1,58 Z" />
+    <path
+        android:fillColor="#C6FF00"
+        android:pathData="M77,54 L83.9,58 L83.9,66 L77,70 L70.1,66 L70.1,58 Z" />
+    <path
+        android:fillColor="#C6FF00"
+        android:pathData="M54,68 L60.9,72 L60.9,80 L54,84 L47.1,80 L47.1,72 Z" />
+</vector>
