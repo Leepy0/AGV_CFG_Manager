@@ -3,6 +3,7 @@ package kr.agv.cfgmanager.ui.theme
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Typography
 import androidx.compose.ui.unit.dp
@@ -43,4 +44,10 @@ val AgvMonoText: TextStyle = TextStyle(
     fontFamily = FontFamily.Monospace,
     fontSize = 12.sp,
     lineHeight = 16.sp,
+)
+
+/** 호기 번호 입력 글자 (28sp, 굵게). 설정 탭 폼의 큰 숫자 칸에만 쓴다. */
+val AgvStepperText: TextStyle = TextStyle(
+    fontSize = 28.sp,
+    fontWeight = FontWeight.SemiBold,
 )

@@ -43,3 +43,11 @@
 | 2026-10-17 | 콘솔 공유 · 빠른 명령 | 공유는 화면에 보이는 원문(이미 가려진 값)만 보낸다. 빠른 명령 버튼(F-D3)은 Phase 5 로 미룸 | 비밀번호가 공유 파일에 들어가지 않게 하고, 계획 11장 Phase 5 범위를 지킴 |
 | 2026-10-17 | 테스트 의존성 | `androidx.compose.ui:ui-test-junit4`, `ui-test-manifest`(debug), `kotlinx-coroutines-android`, `lifecycle-runtime-compose` 추가. 이 환경에서는 `--offline` 으로 해석되지 않아 온라인으로 빌드 | Compose 테스트는 작성만 하고 실행하지 않는다(에뮬레이터 없음). 의존성은 카탈로그에 고정 버전으로 둠 |
 | 2026-10-17 | 보드 탭 빈 상태 · 이력 표식 | 이력 표식(`이력: n호기`)은 Phase 4 의 이력 저장 뒤에 붙인다. 지금은 이름의 호기 번호만으로 "설정 없음(01)" / "N호기 설정됨" 을 보인다 | 이력 파일이 아직 없다 |
+| 2026-10-17 | 적용 실행 위치 | `ApplyRunner`(앱 수명 scope, `UNDISPATCHED` 시작)가 `BridgeSession.withExclusive` 안에서 `ApplyWorkflow` 를 만든다. 진행 · 결과는 Runner 가 쥔다 | 회전 · 탭 전환에도 진행 패널을 복원하고, 워크플로는 채널마다 만들어야 하므로 AppContainer 에 싱글턴으로 둘 수 없다 |
+| 2026-10-17 | 적용 중 세션 규칙 | `withExclusive` 동안 콘솔 · 상태 새로고침 · 다른 보드 연결 · 끊기 · 자동 재연결 · 유휴 끊김을 막는다. 재연결 · 읽기는 워크플로(WaitReady · VerifyWifi · 끝의 읽기)가 맡고 세션은 중복 `stat`/`cfg` 를 보내지 않는다 | 같은 채널에 두 흐름이 동시에 명령을 보내면 응답이 꼬인다(계획 6.4 · 7.1) |
+| 2026-10-17 | 콘솔 `reboot` · `setup off` | 줄을 보고 상태를 바꾸지 않고 `session.reboot()` · `session.closeSetupMode()` 로 넘긴다 | 재부팅 상태 전이와 재연결 시작을 한 곳에서만 처리한다. 콘솔 사용성은 그대로 둔다 |
+| 2026-10-17 | 설정 폼 추가 검사 | 계획 F-E3 의 "IP 가 GW · 서버와 같지 않음(오류)", "마지막 옥텟 0/255(경고)" 는 `ConfigForm`(앱) 에 둔다. `:core` 검증 코드 enum 은 바꾸지 않음 | `ConfigValidator` 는 브리지 `apply()` 규칙을 그대로 옮긴 것이라, 앱 정책은 따로 둔다 |
+| 2026-10-17 | 호기 번호 · IP 모드 | 호기 번호 변경은 `SettingsViewModel.setAgv` 한 곳으로 모은다. IP 모드 "규칙" 은 비활성 자리(Phase 4 프로필 전) | Phase 4 의 IP 재계산 · 이력 제안을 이 한 곳에 붙이면 된다 |
+| 2026-10-17 | 비밀번호 보기 · −/+ | 보기 · 숨기기 는 글자 버튼, −/+ 도 글자 버튼 | `material-icons-core` 에 Visibility · Remove 가 없다(`material-icons-extended` 는 크기 때문에 쓰지 않음). 글자가 있으면 아이콘이 없어도 뜻이 전달된다 |
+| 2026-10-17 | 이력 기록 범위 | 성공 · 실패 · 취소를 기록한다. 바뀐 값이 없는 적용(`NoChange`)은 장치에 아무 명령도 나가지 않으므로 기록하지 않는다. `저장만` 은 `action=apply` + `note` 로 구분 | 부록 B-3 의 `action` 값 목록(`apply`·`defaults`)을 넘기지 않는다 |
+| 2026-10-17 | 프로필 · 라이브러리 자리 | 프로필 주입은 `SettingsViewModel.applyProfileValues`, 프로필 · 비밀번호 저장 체크는 Phase 4 로 미룸. 디버그 가짜 시나리오 선택(Wi-Fi 끊김 · busy 등)은 만들지 않음 | Phase 3 범위. 시나리오는 `ApplyFlowTest` 가 `FakeDeviceOptions` 로 대신 검증한다 |

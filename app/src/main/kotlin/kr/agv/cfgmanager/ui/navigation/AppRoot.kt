@@ -28,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kr.agv.cfgmanager.AppContainer
+import kr.agv.cfgmanager.apply.ApplyUi
 import kr.agv.cfgmanager.R
 import kr.agv.cfgmanager.session.ConnectionChipMapper
 import kr.agv.cfgmanager.session.LinkStatus
@@ -44,6 +45,7 @@ fun AppRoot(container: AppContainer) {
     val navController = rememberNavController()
     val currentDestination = navController.currentBackStackEntryAsState().value?.destination
     val sessionState by container.session.state.collectAsStateWithLifecycle()
+    val applyState by container.apply.state.collectAsStateWithLifecycle()
     val nowMs by produceState(System.currentTimeMillis()) {
         while (true) {
             value = System.currentTimeMillis()
@@ -52,8 +54,8 @@ fun AppRoot(container: AppContainer) {
     }
     val chip = ConnectionChipMapper.map(sessionState, nowMs)
 
-    // 연결 중에는 화면이 꺼지지 않게 한다 (F-C4).
-    val keepOn = sessionState.link != LinkStatus.Disconnected
+    // 연결 중이거나 적용 중에는 화면이 꺼지지 않게 한다 (F-C4, F-A6).
+    val keepOn = sessionState.link != LinkStatus.Disconnected || applyState is ApplyUi.Running
     val view = LocalView.current
     DisposableEffect(keepOn) {
         view.keepScreenOn = keepOn
@@ -102,7 +104,11 @@ fun AppRoot(container: AppContainer) {
                 BoardsRoute(container = container, onConnected = { openTab(TopLevelDestination.Settings) })
             }
             composable(TopLevelDestination.Settings.route) {
-                SettingsRoute(container = container)
+                SettingsRoute(
+                    container = container,
+                    onOpenConsole = { openTab(TopLevelDestination.Diagnostics) },
+                    onOpenBoards = { openTab(TopLevelDestination.Boards) },
+                )
             }
             composable(TopLevelDestination.Diagnostics.route) {
                 DiagnosticsRoute(container = container)

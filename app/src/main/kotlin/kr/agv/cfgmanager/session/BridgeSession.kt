@@ -34,9 +34,18 @@ sealed interface ConnectOutcome {
     data class Failed(val failure: ConnectFailure) : ConnectOutcome
 }
 
+/** 재부팅 요청 결과. [Refused] 는 메인보드 작업 중이라 거부된 것이다 (연결은 그대로). */
+sealed interface RebootOutcome {
+    data class Rebooting(val text: String) : RebootOutcome
+    data class Refused(val text: String) : RebootOutcome
+    data class Failed(val failure: Throwable) : RebootOutcome
+}
+
 /**
  * 앱 수준 연결 세션 (docs/DEVELOPMENT_PLAN.md 6.4). 화면이 바뀌어도, 회전해도 연결을 쥐고 있다.
  * - 명령은 한 번에 하나(세션 [lock] + 채널의 명령 잠금).
+ * - 적용 워크플로는 [withExclusive] 안에서 돈다. 그 동안에는 자동 재연결 · 읽기 · 콘솔 · 연결 전환을 막는다.
+ *   재연결 · 읽기는 워크플로가 맡는다(WaitReady · VerifyWifi · 끝의 읽기), 세션은 같은 명령을 중복으로 보내지 않는다.
  * - 예기치 않은 끊김·재부팅은 30초 동안 주소로 다시 연결한다 (F-C5).
  * - 5분 동안 사용이 없으면 끊는다.
  */
@@ -63,6 +72,9 @@ class BridgeSession(
     private var reconnectJob: Job? = null
     private var lastActivityMs = clock()
     private val wrongPasswordCounts = HashMap<String, Int>()
+
+    /** [withExclusive] 가 도는 동안 true. 호출 스레드(메인)에서만 읽고 쓴다. */
+    private var workflowRunning = false
 
     private data class Target(val address: String, val name: String?, val password: String)
 
@@ -94,6 +106,7 @@ class BridgeSession(
         password: String,
         onStage: (ConnectStage) -> Unit = {},
     ): ConnectOutcome {
+        if (workflowRunning) return ConnectOutcome.Failed(ConnectFailure.Other("적용 중이라 다른 보드에 연결할 수 없습니다"))
         connectJob = currentCoroutineContext()[Job]
         userClosed = false
         return try {
@@ -128,8 +141,9 @@ class BridgeSession(
         }
     }
 
-    /** 사용자가 끊는다. 자동 재연결도 멈춘다. [notice] 는 칩 아래 안내로 남는다. */
+    /** 사용자가 끊는다. 자동 재연결도 멈춘다. [notice] 는 칩 아래 안내로 남는다. 적용 중에는 무시한다. */
     suspend fun disconnect(notice: String? = null) {
+        if (workflowRunning) return
         userClosed = true
         reconnectJob?.cancel()
         reconnectJob = null
@@ -143,56 +157,19 @@ class BridgeSession(
      * 상태 줄(`stat`)만 다시 읽는다. 진단 탭의 [새로고침]과 자동 5초가 쓴다.
      * [auto] 이면 사용자 활동으로 치지 않는다 (유휴 끊김 타이머를 막지 않는다).
      */
-    suspend fun refreshStatus(auto: Boolean = false): Result<BridgeStatus> = lock.withLock {
-        val channel = logged ?: return@withLock Result.failure(BridgeChannelException.NotConnected())
-        if (!auto) touch()
-        try {
-            val text = channel.exec(BridgeCommands.stat())
-            val status = ResponseParsers.parseStat(text)
-                ?: return@withLock Result.failure(IllegalStateException("stat 응답을 해석하지 못했습니다"))
-            stateFlow.update { st ->
-                st.copy(snapshot = st.snapshot?.copy(status = status, readAt = clock()))
-            }
-            Result.success(status)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: BridgeChannelException) {
-            handleChannelFailure(failure)
-            Result.failure(failure)
-        } catch (failure: Exception) {
-            Result.failure(failure)
-        }
-    }
-
-    /** 콘솔 입력 한 줄을 보낸다. 응답 원문은 [console] 에 쌓인다. */
-    suspend fun sendConsole(line: String): Result<String> {
-        val command = line.trim()
-        if (command.isEmpty()) return Result.failure(IllegalArgumentException("명령을 입력하세요"))
-        if (command.utf8Length() > BridgeCommands.BLE_LINE_MAX_BYTES) {
-            return Result.failure(IllegalArgumentException("명령이 너무 깁니다 (BLE 한 줄은 ${BridgeCommands.BLE_LINE_MAX_BYTES}바이트까지)"))
-        }
-        touch()
+    suspend fun refreshStatus(auto: Boolean = false): Result<BridgeStatus> {
+        if (workflowRunning) return Result.failure(IllegalStateException("적용 중입니다"))
         return lock.withLock {
             val channel = logged ?: return@withLock Result.failure(BridgeChannelException.NotConnected())
-            val words = command.split(' ')
+            if (!auto) touch()
             try {
-                when {
-                    words.first() == "reboot" -> {
-                        val text = channel.execThenDisconnect(command)
-                        if (text.trimStart().startsWith("rebooting")) {
-                            stateFlow.update { it.copy(link = LinkStatus.Rebooting, snapshot = null) }
-                        }
-                        Result.success(text)
-                    }
-                    words.take(2) == listOf("setup", "off") -> {
-                        val text = channel.exec(command)
-                        userClosed = true
-                        reconnectJob?.cancel()
-                        dropLinkLocked(LinkStatus.Disconnected, "설정 모드를 닫았습니다. 보드는 Wi-Fi 연결 상태로 동작합니다.")
-                        Result.success(text)
-                    }
-                    else -> Result.success(channel.exec(command))
+                val text = channel.exec(BridgeCommands.stat())
+                val status = ResponseParsers.parseStat(text)
+                    ?: return@withLock Result.failure(IllegalStateException("stat 응답을 해석하지 못했습니다"))
+                stateFlow.update { st ->
+                    st.copy(snapshot = st.snapshot?.copy(status = status, readAt = clock()))
                 }
+                Result.success(status)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: BridgeChannelException) {
@@ -201,6 +178,124 @@ class BridgeSession(
             } catch (failure: Exception) {
                 Result.failure(failure)
             }
+        }
+    }
+
+    /**
+     * 콘솔 입력 한 줄을 보낸다. 응답 원문은 [console] 에 쌓인다.
+     * `reboot` 와 `setup off` 는 줄 자체로 상태를 바꾸지 않고 [reboot] · [closeSetupMode] 로 넘긴다.
+     */
+    suspend fun sendConsole(line: String): Result<String> {
+        val command = line.trim()
+        if (command.isEmpty()) return Result.failure(IllegalArgumentException("명령을 입력하세요"))
+        if (command.utf8Length() > BridgeCommands.BLE_LINE_MAX_BYTES) {
+            return Result.failure(IllegalArgumentException("명령이 너무 깁니다 (BLE 한 줄은 ${BridgeCommands.BLE_LINE_MAX_BYTES}바이트까지)"))
+        }
+        if (workflowRunning) return Result.failure(IllegalStateException("적용 중에는 콘솔을 쓸 수 없습니다"))
+        val words = command.split(' ')
+        if (words.first() == "reboot") {
+            return when (val outcome = reboot()) {
+                is RebootOutcome.Rebooting -> Result.success(outcome.text)
+                is RebootOutcome.Refused -> Result.success(outcome.text)
+                is RebootOutcome.Failed -> Result.failure(outcome.failure)
+            }
+        }
+        if (words.take(2) == listOf("setup", "off")) return closeSetupMode()
+        touch()
+        return lock.withLock {
+            val channel = logged ?: return@withLock Result.failure(BridgeChannelException.NotConnected())
+            try {
+                Result.success(channel.exec(command))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: BridgeChannelException) {
+                handleChannelFailure(failure)
+                Result.failure(failure)
+            } catch (failure: Exception) {
+                Result.failure(failure)
+            }
+        }
+    }
+
+    /** 재부팅 요청(`reboot`). 응답이 `rebooting` 이면 같은 주소로 다시 붙어 장치를 읽는다 (F-C5). */
+    suspend fun reboot(): RebootOutcome {
+        if (workflowRunning) return RebootOutcome.Failed(IllegalStateException("적용 중입니다"))
+        touch()
+        return lock.withLock {
+            val channel = logged ?: return@withLock RebootOutcome.Failed(BridgeChannelException.NotConnected())
+            try {
+                val text = channel.execThenDisconnect(BridgeCommands.reboot())
+                when (ResponseParsers.parseRebootResult(text)) {
+                    ResponseParsers.RebootResult.Rebooting -> {
+                        stateFlow.update { it.copy(link = LinkStatus.Rebooting, snapshot = null) }
+                        RebootOutcome.Rebooting(text)
+                    }
+                    is ResponseParsers.RebootResult.Refused -> RebootOutcome.Refused(text)
+                    ResponseParsers.RebootResult.Unknown ->
+                        RebootOutcome.Failed(IllegalStateException("재부팅 응답을 해석하지 못했습니다"))
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: BridgeChannelException) {
+                handleChannelFailure(failure)
+                RebootOutcome.Failed(failure)
+            } catch (failure: Exception) {
+                RebootOutcome.Failed(failure)
+            }
+        }
+    }
+
+    /** 설정 모드를 닫는다(`setup off`). 보드는 곧 광고를 멈추므로 자동 재연결하지 않는다. */
+    suspend fun closeSetupMode(): Result<String> {
+        if (workflowRunning) return Result.failure(IllegalStateException("적용 중입니다"))
+        userClosed = true
+        reconnectJob?.cancel()
+        reconnectJob = null
+        touch()
+        return lock.withLock {
+            val channel = logged ?: return@withLock Result.failure(BridgeChannelException.NotConnected())
+            try {
+                val text = channel.exec(BridgeCommands.setup(false))
+                userClosed = true
+                dropLinkLocked(LinkStatus.Disconnected, "설정 모드를 닫았습니다. 보드는 Wi-Fi 연결 상태로 동작합니다.")
+                Result.success(text)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: BridgeChannelException) {
+                handleChannelFailure(failure)
+                Result.failure(failure)
+            } catch (failure: Exception) {
+                Result.failure(failure)
+            }
+        }
+    }
+
+    /**
+     * 여러 명령을 끼어들기 없이 보내야 할 때(적용 워크플로) 쓴다. [block] 이 도는 동안 세션 잠금을 쥐고,
+     * 자동 재연결 · 읽기 · 콘솔 · 다른 보드 연결을 막는다. 연결이 없으면 [BridgeChannelException.NotConnected].
+     * 끝나면 연결이 살아 있으면 Connected 로 두고, 끊겨 있으면 주소로 다시 연결을 시작한다.
+     */
+    suspend fun <T> withExclusive(block: suspend (IBridgeChannel) -> T): T = lock.withLock {
+        val channel = logged ?: throw BridgeChannelException.NotConnected()
+        touch()
+        workflowRunning = true
+        try {
+            block(channel)
+        } finally {
+            workflowRunning = false
+            // 이 블록은 취소될 수 있으므로 suspend 호출 없이 상태만 맞춘다.
+            if (active?.state?.value is ChannelState.Connected) {
+                stateFlow.update { if (it.link == LinkStatus.Connected) it else it.copy(link = LinkStatus.Connected, reconnectLeftSec = null) }
+            } else if (!userClosed && active != null) {
+                startReconnect()
+            }
+        }
+    }
+
+    /** 워크플로가 읽은 최신 장치 상태를 세션에 반영한다 (화면 · 칩 · 다음 적용의 기준). */
+    fun adoptSnapshot(snapshot: DeviceSnapshot) {
+        stateFlow.update {
+            it.copy(snapshot = snapshot, name = snapshot.name ?: it.name, fw = snapshot.fw ?: it.fw)
         }
     }
 
@@ -310,11 +405,16 @@ class BridgeSession(
                 if (channel !== active || userClosed) return@collect
                 when (st) {
                     ChannelState.Rebooting -> {
-                        stateFlow.update { it.copy(link = LinkStatus.Rebooting, snapshot = null, name = it.name) }
+                        // 적용 중에는 스냅샷을 지우지 않는다. 워크플로가 끝나면 새 값으로 바꾼다.
+                        stateFlow.update {
+                            it.copy(link = LinkStatus.Rebooting, snapshot = if (workflowRunning) it.snapshot else null)
+                        }
                         startReconnect()
                     }
                     ChannelState.Disconnected -> {
-                        stateFlow.update { it.copy(link = LinkStatus.Reconnecting, snapshot = null) }
+                        stateFlow.update {
+                            it.copy(link = LinkStatus.Reconnecting, snapshot = if (workflowRunning) it.snapshot else null)
+                        }
                         startReconnect()
                     }
                     else -> Unit
@@ -323,8 +423,12 @@ class BridgeSession(
         }
     }
 
-    /** 30초 동안 주소로 다시 연결하고 읽는다 (F-C5). 실패하면 끊김 상태로 둔다. */
+    /**
+     * 30초 동안 주소로 다시 연결하고 읽는다 (F-C5). 실패하면 끊김 상태로 둔다.
+     * 적용 중이면 아무것도 하지 않는다: 워크플로의 WaitReady · VerifyWifi 가 재연결과 확인을 맡는다.
+     */
     private fun startReconnect() {
+        if (workflowRunning) return
         val t = target ?: return
         if (reconnectJob?.isActive == true) return
         reconnectJob = scope.launch {
@@ -340,9 +444,9 @@ class BridgeSession(
                 it.copy(link = LinkStatus.Reconnecting, reconnectLeftSec = RECONNECT_WINDOW_MS.div(1000).toInt(), notice = null)
             }
             var recovered = false
-            while (!userClosed && clock() < deadline && !recovered) {
+            while (!userClosed && !workflowRunning && clock() < deadline && !recovered) {
                 recovered = lock.withLock {
-                    if (userClosed) return@withLock false
+                    if (userClosed || workflowRunning) return@withLock false
                     dropLinkLocked(LinkStatus.Reconnecting)
                     when (val link = linkLocked(t, RECONNECT_ATTEMPT_TIMEOUT, {})) {
                         is LinkResult.Linked -> {
@@ -354,7 +458,7 @@ class BridgeSession(
                 }
             }
             ticker.cancel()
-            if (!recovered && !userClosed) {
+            if (!recovered && !userClosed && !workflowRunning) {
                 lock.withLock {
                     dropLinkLocked(
                         LinkStatus.Disconnected,
@@ -366,7 +470,7 @@ class BridgeSession(
     }
 
     private suspend fun checkIdle() {
-        if (stateFlow.value.link != LinkStatus.Connected || userClosed) return
+        if (stateFlow.value.link != LinkStatus.Connected || userClosed || workflowRunning) return
         if (clock() - lastActivityMs >= IDLE_LIMIT_MS) {
             disconnect(notice = "5분 동안 사용하지 않아 연결을 끊었습니다. 다시 연결하려면 보드 탭에서 찾으세요.")
         }
@@ -375,7 +479,7 @@ class BridgeSession(
     private suspend fun handleChannelFailure(failure: BridgeChannelException) {
         if (failure is BridgeChannelException.Disconnected) {
             // 끊김 감시가 재연결을 시작한다. 여기서는 상태만 맞춘다.
-            stateFlow.update { it.copy(snapshot = null) }
+            stateFlow.update { it.copy(snapshot = if (workflowRunning) it.snapshot else null) }
         }
     }
 

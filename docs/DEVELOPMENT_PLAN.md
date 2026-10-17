@@ -482,10 +482,12 @@ AGV_CFG_Manager/
 │     ├─ AgvApp.kt  MainActivity.kt  AppContainer.kt(수동 DI)
 │     ├─ ble/      BleScanner.kt  BleBridgeChannel.kt  GattQueue.kt  BlePermissions.kt
 │     ├─ usb/      UsbSerialBridgeChannel.kt (선택)
-│     ├─ data/     ProfileStore.kt  NetworkStore.kt(Keystore 암호화)  HistoryStore.kt  SettingsStore.kt(DataStore)  KeystoreCipher.kt  AppLog.kt
+│     ├─ data/     ProfileStore.kt  NetworkStore.kt(Keystore 암호화)  HistoryStore.kt(jsonl 추가 기록, Phase 3)  SettingsStore.kt(DataStore)  KeystoreCipher.kt  AppLog.kt
+│     ├─ session/  BridgeSession.kt(withExclusive · reboot · closeSetupMode)  ConsoleLog.kt  LoggedChannel.kt  BoardSource.kt  FakeBoards.kt  SessionState.kt
+│     ├─ apply/    ApplyRunner.kt(진행 상태 · 결과 · 이력, 앱 수명 scope)  ApplyProgress.kt  ApplyMessages.kt(결과 카드 문구)
 │     ├─ net/      PhoneWifiInfo.kt(LinkProperties)  GatewayProbe.kt  Updater.kt
 │     ├─ ui/       theme/  navigation/  components/
-│     │            boards/  config/  diagnostics/  history/  profiles/  library/  about/  settings/
+│     │            boards/  config/(ConfigForm 순수 모델 · SettingsViewModel · 폼 · 진행 · 결과 카드)  diagnostics/  history/  profiles/  library/  about/  settings/
 │     └─ qr/       QrEncode.kt  QrScanScreen.kt (선택)
 │  └─ src/androidTest/…  (Compose UI 테스트, Fake 채널)
 ├─ .github/workflows/android.yml
