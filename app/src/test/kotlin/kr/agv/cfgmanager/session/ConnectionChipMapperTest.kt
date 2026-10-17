@@ -1,0 +1,66 @@
+package kr.agv.cfgmanager.session
+
+import kr.agv.cfgmanager.core.bridge.CfgState
+import kr.agv.cfgmanager.core.bridge.DeviceSnapshot
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class ConnectionChipMapperTest {
+
+    private fun snapshot(cfg: CfgState?, readAt: Long) = DeviceSnapshot(
+        deviceId = "AA:BB", name = "AGVBR-07-A1B2", fw = "0.5.5", mac = null, config = null,
+        cfgState = cfg, status = null, capabilities = kr.agv.cfgmanager.core.bridge.Capabilities(),
+        readAt = readAt,
+    )
+
+    @Test
+    fun `끊김은 경고 톤이고 안내 문구를 함께 보인다`() {
+        val chip = ConnectionChipMapper.map(SessionState(link = LinkStatus.Disconnected, notice = "5분 동안 사용하지 않아 연결을 끊었습니다."), nowMs = 0)
+        assertEquals("끊김", chip.label)
+        assertEquals(ChipTone.Warn, chip.tone)
+        assertEquals("5분 동안 사용하지 않아 연결을 끊었습니다.", chip.detail)
+    }
+
+    @Test
+    fun `찾는 중은 스캔 중이고 연결이 없을 때만 보인다`() {
+        val scanning = ConnectionChipMapper.map(SessionState(scanning = true), nowMs = 0)
+        assertEquals("찾는 중", scanning.label)
+        val connecting = ConnectionChipMapper.map(SessionState(link = LinkStatus.Connecting, scanning = true), nowMs = 0)
+        assertEquals("연결 중", connecting.label)
+    }
+
+    @Test
+    fun `연결됨은 이름 fw cfg 상태와 마지막 읽기 시각을 보인다`() {
+        val state = SessionState(
+            link = LinkStatus.Connected,
+            name = "AGVBR-07-A1B2",
+            fw = "0.5.5",
+            snapshot = snapshot(CfgState.SAVED, readAt = 10_000),
+        )
+        val chip = ConnectionChipMapper.map(state, nowMs = 14_900)
+        assertEquals(ChipTone.Ok, chip.tone)
+        assertTrue(chip.label.contains("AGVBR-07-A1B2"))
+        assertTrue(chip.label.contains("fw 0.5.5"))
+        assertTrue(chip.label.contains("cfg 저장됨"))
+        assertEquals("마지막 읽기 4초 전", chip.detail)
+    }
+
+    @Test
+    fun `재연결 중에는 남은 초를 보인다`() {
+        val chip = ConnectionChipMapper.map(
+            SessionState(link = LinkStatus.Reconnecting, reconnectLeftSec = 23),
+            nowMs = 0,
+        )
+        assertEquals("끊김 — 다시 연결 중 (23초)", chip.label)
+        assertEquals(ChipTone.Warn, chip.tone)
+    }
+
+    @Test
+    fun `재부팅 대기와 설정 상태 문구`() {
+        assertEquals("재부팅 대기", ConnectionChipMapper.map(SessionState(link = LinkStatus.Rebooting), 0).label)
+        assertEquals("기본값", ConnectionChipMapper.cfgLabel(CfgState.DEFAULT))
+        assertEquals("확인 대기", ConnectionChipMapper.cfgLabel(CfgState.TRIAL))
+        assertEquals("미확인", ConnectionChipMapper.cfgLabel(null))
+    }
+}

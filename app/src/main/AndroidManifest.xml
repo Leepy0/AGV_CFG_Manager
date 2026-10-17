@@ -1,10 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- BLE · Wi-Fi · 권한 등은 Phase 2 이후에 필요한 만큼만 추가한다. -->
+    <!-- BLE 는 보드 연결의 1순위 경로다 (docs/DEVELOPMENT_PLAN.md 8.1). -->
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true" />
+
+    <!-- Android 12+: 위치 없이 스캔한다 (neverForLocation). -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- Android 11 이하: 설치 시 권한과 위치(스캔 결과에 필요). -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
+        android:name=".AgvApp"
         android:allowBackup="false"
         android:label="@string/app_name"
         android:supportsRtl="true"

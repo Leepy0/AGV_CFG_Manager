@@ -1,8 +1,10 @@
 package kr.agv.cfgmanager.ui.theme
 
 import androidx.compose.material3.Shapes
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Typography
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.unit.dp
 
 // 간격 · 모양 · 글꼴 토큰. 화면 코드는 여기 값만 쓴다 (sp · dp 하드코딩 금지).
@@ -22,3 +24,23 @@ val AgvTypography: Typography = Typography()
 
 /** 모양. Phase 0 은 M3 기본 값. */
 val AgvShapes: Shapes = Shapes()
+
+/** 크기 토큰 (dp). 터치 최소 48dp, 주요 행동은 72dp(장갑 사용 기준). */
+object AgvSizes {
+    val TouchMin = 48.dp
+    val PrimaryAction = 72.dp
+    val ListRowMin = 64.dp
+    val SignalBarWidth = 6.dp
+    val SignalBarGap = 3.dp
+    val SignalBarHeights = listOf(8.dp, 12.dp, 16.dp)
+    val LabelColumn = 96.dp
+    val ChipRadius = 16.dp
+    val CardRadius = 8.dp
+}
+
+/** 로그 · 명령 · 숫자 열용 고정폭 글자. 크기는 본문 소형 단계에 맞춘다. */
+val AgvMonoText: TextStyle = TextStyle(
+    fontFamily = FontFamily.Monospace,
+    fontSize = 12.sp,
+    lineHeight = 16.sp,
+)

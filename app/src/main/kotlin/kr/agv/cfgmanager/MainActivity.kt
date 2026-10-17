@@ -12,9 +12,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val container = (application as AgvApp).container
         setContent {
             AgvCfgManagerTheme {
-                AppRoot()
+                AppRoot(container)
             }
         }
     }

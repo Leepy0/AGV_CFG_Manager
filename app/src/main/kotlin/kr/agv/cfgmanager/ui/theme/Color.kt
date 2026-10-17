@@ -64,3 +64,25 @@ val AgvDarkColors: ColorScheme = darkColorScheme(
     outline = Color(0xFF8E9099),
     outlineVariant = Color(0xFF44474F),
 )
+
+/**
+ * 상태 색 3종 (정상 · 경고 · 알람). 화면은 글자와 아이콘을 함께 쓰고, 색은 보조로만 쓴다.
+ * 평상시 화면에는 쓰지 않는다 (field-app-ui-design: 색은 상태에만).
+ */
+data class AgvStatusColors(
+    val ok: Color,
+    val warn: Color,
+    val alarm: Color,
+)
+
+val AgvLightStatus = AgvStatusColors(
+    ok = Color(0xFF1B6E3A),
+    warn = Color(0xFF7A4D00),
+    alarm = Color(0xFFBA1A1A),
+)
+
+val AgvDarkStatus = AgvStatusColors(
+    ok = Color(0xFF8AD9A3),
+    warn = Color(0xFFFFC36B),
+    alarm = Color(0xFFFFB4AB),
+)
