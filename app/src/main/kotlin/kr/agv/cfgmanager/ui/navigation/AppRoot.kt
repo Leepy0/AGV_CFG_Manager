@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,9 +39,9 @@ import kr.agv.cfgmanager.R
 import kr.agv.cfgmanager.apply.ApplyUi
 import kr.agv.cfgmanager.session.ConnectionChipMapper
 import kr.agv.cfgmanager.session.LinkStatus
-import kr.agv.cfgmanager.ui.boards.BoardsRoute
+
 import kr.agv.cfgmanager.ui.components.ConnectionChip
-import kr.agv.cfgmanager.ui.config.SettingsRoute
+
 import kr.agv.cfgmanager.ui.diagnostics.DiagnosticsRoute
 import kr.agv.cfgmanager.ui.history.HistoryRoute
 import kr.agv.cfgmanager.ui.library.LibraryRoute
@@ -54,9 +53,10 @@ import kr.agv.cfgmanager.ui.more.TripPrepScreen
 import kr.agv.cfgmanager.ui.profiles.ProfileEditRoute
 import kr.agv.cfgmanager.ui.profiles.ProfileListRoute
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
+import kr.agv.cfgmanager.ui.work.WorkRoute
 
 /**
- * 앱 루트. 탭 4개(보드 · 설정 · 진단 · 이력)는 [NavigationSuiteScaffold] 가 고른다:
+ * 앱 루트. 탭 4개(세팅 · 진단 · 이력 · 더보기)는 [NavigationSuiteScaffold] 가 고른다:
  * Compact 는 하단 바, Medium 이상은 내비게이션 레일 (F-G6). 보조 화면은 뒤로 가기 버튼을 쓰고 탭 바를 숨긴다.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,8 +93,6 @@ fun AppRoot(container: AppContainer) {
     }
 
     val openTab: (TopLevelDestination) -> Unit = { destination ->
-        // 보드 탭으로 돌아가면 연속 세팅은 읽은 보드를 버리고 목록 상태로 간다 (7.3).
-        if (destination == TopLevelDestination.Boards) container.batch.backToList()
         navController.navigate(destination.route) {
             popUpTo(navController.graph.startDestinationId) { saveState = true }
             launchSingleTop = true
@@ -134,13 +132,6 @@ fun AppRoot(container: AppContainer) {
                                 }
                             }
                         },
-                        actions = {
-                            if (isTab) {
-                                IconButton(onClick = { push(ROUTE_MORE) }) {
-                                    Icon(Icons.Filled.Settings, contentDescription = "보조 메뉴 (프로필 · 설정 · 정보)")
-                                }
-                            }
-                        },
                     )
                     ConnectionChip(
                         chip = chip,
@@ -154,17 +145,13 @@ fun AppRoot(container: AppContainer) {
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = TopLevelDestination.Boards.route,
+                startDestination = TopLevelDestination.Work.route,
                 modifier = Modifier.padding(innerPadding),
             ) {
-                composable(TopLevelDestination.Boards.route) {
-                    BoardsRoute(container = container, onConnected = { openTab(TopLevelDestination.Settings) })
-                }
-                composable(TopLevelDestination.Settings.route) {
-                    SettingsRoute(
+                composable(TopLevelDestination.Work.route) {
+                    WorkRoute(
                         container = container,
                         onOpenConsole = { openTab(TopLevelDestination.Diagnostics) },
-                        onOpenBoards = { openTab(TopLevelDestination.Boards) },
                         onEditProfile = { id -> push(if (id == null) "profile/new" else "profile/$id") },
                     )
                 }
@@ -172,9 +159,9 @@ fun AppRoot(container: AppContainer) {
                     DiagnosticsRoute(container = container)
                 }
                 composable(TopLevelDestination.History.route) {
-                    HistoryRoute(container = container, onFilled = { openTab(TopLevelDestination.Settings) })
+                    HistoryRoute(container = container, onFilled = { openTab(TopLevelDestination.Work) })
                 }
-                composable(ROUTE_MORE) {
+                composable(TopLevelDestination.More.route) {
                     MoreScreen(
                         container = container,
                         onOpenProfiles = { push(ROUTE_PROFILES) },
@@ -217,7 +204,6 @@ fun AppRoot(container: AppContainer) {
     }
 }
 
-private const val ROUTE_MORE = "more"
 private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_LIBRARY = "library"
 private const val ROUTE_TRIP = "trip"
@@ -226,7 +212,6 @@ private const val ROUTE_APP_SETTINGS = "app_settings"
 private const val ROUTE_ABOUT = "about"
 
 private fun subScreenTitle(route: String?): String = when {
-    route == ROUTE_MORE -> "보조 메뉴"
     route == ROUTE_PROFILES -> "프로필"
     route == ROUTE_LIBRARY -> "SSID 라이브러리"
     route == ROUTE_TRIP -> "출장 준비"

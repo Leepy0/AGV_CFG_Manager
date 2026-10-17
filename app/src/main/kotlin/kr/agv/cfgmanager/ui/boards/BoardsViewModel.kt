@@ -22,6 +22,8 @@ import kr.agv.cfgmanager.batch.BatchUi
 import kr.agv.cfgmanager.ble.Preflight
 import kr.agv.cfgmanager.core.bridge.CfgState
 import kr.agv.cfgmanager.core.history.AgvHints
+import kr.agv.cfgmanager.core.history.HistoryEntry
+import kr.agv.cfgmanager.core.profiles.ProfileDocument
 import kr.agv.cfgmanager.session.BoardRow
 import kr.agv.cfgmanager.session.ConnectOutcome
 import java.io.IOException
@@ -45,11 +47,54 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
     private var scanJob: Job? = null
     private var connectJob: Job? = null
     private var lastStartMs = 0L
+    private var historyEntries: List<HistoryEntry> = emptyList()
 
     init {
         reloadHistory()
         viewModelScope.launch {
             batch.ui.collect { b -> _ui.update { it.copy(doneAddresses = doneOf(b), batchBanner = bannerOf(b)) } }
+        }
+        viewModelScope.launch {
+            profiles.document.collect { doc -> refreshProfiles(doc) }
+        }
+    }
+
+    /** 처음 들어왔거나 연결이 끝나 목록으로 돌아왔을 때: 누르지 않아도 자동으로 찾는다. 간격 제한에 걸리면 조용히 넘어간다. */
+    fun autoScan() {
+        if (scanJob?.isActive == true || _ui.value.sheet != null) return
+        if (lastStartMs != 0L && now() - lastStartMs < RESCAN_GAP_MS) return
+        startScan()
+    }
+
+    /** 현장 프로필을 고른다. 연결 로그인 비밀번호와 연결 뒤 채울 값이 이 프로필에서 나온다. */
+    fun selectProfile(id: String) {
+        viewModelScope.launch {
+            try {
+                profiles.setLast(id)
+            } catch (failure: IOException) {
+                // 마지막 프로필 기억만 실패한다
+            }
+        }
+    }
+
+    /**
+     * 목록의 보드를 누른다. 로그인 비밀번호를 이미 알면(프로필) 시트를 거치지 않고 바로 연결하고,
+     * USB 는 로그인이 없으니 바로 연결한다. 비밀번호가 없으면 시트에서 묻는다.
+     */
+    fun pick(row: BoardRow) {
+        openSheet(row)
+        if (row.isUsb || _ui.value.sheet?.password.orEmpty().isNotEmpty()) connect()
+    }
+
+    private fun refreshProfiles(doc: ProfileDocument?) {
+        val options = doc?.profiles?.map { ProfileOption(it.id, it.name) }.orEmpty()
+        val selected = doc?.profiles?.firstOrNull { it.id == doc.lastProfileId }?.id
+        _ui.update {
+            it.copy(
+                profiles = options,
+                selectedProfileId = selected,
+                nextAgv = AgvHints.nextAgvFor(selected, historyEntries),
+            )
         }
     }
 
@@ -164,7 +209,13 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch {
             try {
                 val entries = withContext(Dispatchers.IO) { history.readAll() }
-                _ui.update { it.copy(historyAgv = AgvHints.latestAgvByAddress(entries)) }
+                historyEntries = entries
+                _ui.update {
+                    it.copy(
+                        historyAgv = AgvHints.latestAgvByAddress(entries),
+                        nextAgv = AgvHints.nextAgvFor(it.selectedProfileId, entries),
+                    )
+                }
             } catch (failure: IOException) {
                 // 이력을 못 읽으면 표식 없이 보인다
             }

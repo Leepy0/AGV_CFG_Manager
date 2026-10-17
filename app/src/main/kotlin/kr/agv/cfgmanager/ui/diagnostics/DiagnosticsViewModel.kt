@@ -40,8 +40,8 @@ data class DiagnosticsUi(
 /** 명령 실패를 사람이 읽는 문구로. 예외 원문은 쓰지 않는다. */
 fun commandErrorText(failure: Throwable): String = when (failure) {
     is BridgeChannelException.Timeout -> "응답이 없습니다. 보드가 멀거나 설정 모드가 닫혔을 수 있습니다."
-    is BridgeChannelException.Disconnected -> "연결이 끊겼습니다. 보드 탭에서 다시 연결하세요."
-    is BridgeChannelException.NotConnected -> "연결된 장치가 없습니다. 보드 탭에서 연결하세요."
+    is BridgeChannelException.Disconnected -> "연결이 끊겼습니다. 세팅 탭에서 다시 연결하세요."
+    is BridgeChannelException.NotConnected -> "연결된 장치가 없습니다. 세팅 탭에서 연결하세요."
     else -> "명령을 보내지 못했습니다. 다시 시도하세요."
 }
 
@@ -55,7 +55,7 @@ fun resetNoticeText(outcome: FactoryResetOutcome): String = when (outcome) {
     is FactoryResetOutcome.RebootRefused ->
         "설정은 지웠지만 메인보드 굽기 중이라 재부팅이 거부됐습니다. 굽기가 끝난 뒤 콘솔에서 reboot 를 보내세요."
     is FactoryResetOutcome.RebootUnknown ->
-        "설정은 지웠지만 재부팅 응답을 확인하지 못했습니다 (${outcome.reason}). 보드 탭에서 다시 찾아 보세요."
+        "설정은 지웠지만 재부팅 응답을 확인하지 못했습니다 (${outcome.reason}). 세팅 탭에서 다시 찾아 보세요."
     is FactoryResetOutcome.EraseFailed ->
         "설정을 지우지 못했습니다 (${outcome.reason}). 보드 설정은 그대로입니다."
 }

@@ -42,8 +42,8 @@ import kr.agv.cfgmanager.session.RebootOutcome
 import kr.agv.cfgmanager.session.SessionState
 import java.io.IOException
 
-/** 접히는 그룹. Wi-Fi · 네트워크 · 서버는 항상 펼쳐 두고, DNS 와 고급 항목만 접는다 (5.3). */
-enum class FormGroup { Dns, Advanced }
+/** 접히는 그룹. 세부 값(Wi-Fi 비밀번호 · 네트워크 · 서버)은 기본으로 접고 요약 카드만 보인다. DNS 와 고급 항목은 그 안에서 한 번 더 접는다. */
+enum class FormGroup { Details, Dns, Advanced }
 
 /** 설정 탭이 그릴 상태. */
 data class SettingsUi(
@@ -136,9 +136,10 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     init {
         reloadHistory()
         viewModelScope.launch {
+            // 보드 목록 단계에서 고른 프로필(마지막 프로필)을 따라간다. 연결 뒤 채우기는 이 프로필로 한다.
             profileStore.document.collect { doc ->
-                if (doc != null && editing.value.selectedProfileId == null) {
-                    val last = doc.profiles.firstOrNull { it.id == doc.lastProfileId }
+                val last = doc?.profiles?.firstOrNull { it.id == doc.lastProfileId }
+                if (doc != null && last?.id != editing.value.selectedProfileId && (last != null || editing.value.selectedProfileId == null)) {
                     editing.update { it.copy(selectedProfileId = last?.id, ipState = IpRuleState(last?.ipRule)) }
                 }
             }
@@ -521,8 +522,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         link == LinkStatus.Rebooting || link == LinkStatus.Reconnecting ->
             "보드를 다시 찾는 중입니다. 연결되면 자동으로 이어집니다."
         link == LinkStatus.Connecting -> "보드에 연결하는 중입니다."
-        hasDraft -> "연결이 끊겼습니다. 보드 탭에서 다시 연결하세요."
-        else -> "보드 탭에서 연결하세요."
+        hasDraft -> "연결이 끊겼습니다. 세팅 탭에서 다시 연결하세요."
+        else -> "세팅 탭에서 연결하세요."
     }
 
     private fun isSuccess(result: ApplyResult): Boolean =

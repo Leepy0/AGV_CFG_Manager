@@ -21,10 +21,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,9 +73,12 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
-/** 보드 탭: 상태를 VM 에서 받아 [BoardsContent] 로 그린다. 연결이 끝나면 [onConnected] 를 한 번 부른다. */
+/**
+ * 세팅 탭의 "보드 고르기" 단계: 상태를 VM 에서 받아 [BoardsContent] 로 그린다. 들어오면 자동으로 찾기 시작한다.
+ * 연결이 끝나면 [onConnected] 를 한 번 부른다 (세팅 탭은 연결 상태를 보고 스스로 다음 단계로 바뀐다).
+ */
 @Composable
-fun BoardsRoute(container: AppContainer, onConnected: () -> Unit) {
+fun BoardsRoute(container: AppContainer, onConnected: () -> Unit = {}) {
     val vm: BoardsViewModel = viewModel(factory = viewModelFactory {
         initializer { BoardsViewModel(container) }
     })
@@ -81,6 +88,7 @@ fun BoardsRoute(container: AppContainer, onConnected: () -> Unit) {
     LaunchedEffect(vm) {
         vm.connected.collect { onConnected() }
     }
+    LaunchedEffect(vm) { vm.autoScan() }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -93,7 +101,8 @@ fun BoardsRoute(container: AppContainer, onConnected: () -> Unit) {
         ui = ui,
         onPrimary = vm::startScan,
         onStop = vm::stopScan,
-        onRowClick = vm::openSheet,
+        onRowClick = vm::pick,
+        onSelectProfile = vm::selectProfile,
         onErrorAction = { error ->
             when (error) {
                 is ScanError.Permission -> permissionLauncher.launch(error.permissions.toTypedArray())
@@ -128,9 +137,11 @@ fun BoardsContent(
     onCancelConnect: () -> Unit,
     onSheetDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    onSelectProfile: (String) -> Unit = {},
 ) {
     val scanning = ui.scanState == ScanState.Scanning
     Column(modifier = modifier.fillMaxSize().padding(horizontal = AgvSpacing.L)) {
+        ProfileBar(ui, onSelectProfile)
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
             verticalAlignment = Alignment.CenterVertically,
@@ -236,6 +247,55 @@ fun BoardsContent(
             onConnect = onConnect,
             onCancel = onCancelConnect,
             onDismiss = onSheetDismiss,
+        )
+    }
+}
+
+/**
+ * 맨 위 한 줄: 이번 작업의 현장 프로필과 다음 호기 제안. 보드를 누르기 전에 정한다
+ * (연결 로그인 비밀번호와 연결 뒤 채울 값이 이 프로필에서 나오므로 순서상 첫 단계다).
+ */
+@Composable
+private fun ProfileBar(ui: BoardsUi, onSelect: (String) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val selected = ui.profiles.firstOrNull { it.id == ui.selectedProfileId }
+    Column(modifier = Modifier.fillMaxWidth().padding(top = AgvSpacing.S)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("현장", style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(AgvSizes.LabelColumn))
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = { menuOpen = true },
+                    enabled = ui.profiles.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+                ) {
+                    Text(selected?.name ?: "프로필 선택", modifier = Modifier.weight(1f))
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null)
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    ui.profiles.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.name) },
+                            onClick = {
+                                menuOpen = false
+                                onSelect(option.id)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            if (selected == null) {
+                "프로필을 고르세요. 더보기 > 프로필에서 만들 수 있습니다."
+            } else {
+                "연결하면 이 프로필 값이 채워집니다" +
+                    (ui.nextAgv?.let { " · 다음 호기 제안 ${"%02d".format(it)}" } ?: "")
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

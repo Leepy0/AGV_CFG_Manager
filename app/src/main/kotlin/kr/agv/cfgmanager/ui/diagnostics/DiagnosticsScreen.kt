@@ -103,7 +103,7 @@ fun DiagnosticsRoute(container: AppContainer) {
                     } else {
                         "연결된 장치가 없습니다"
                     },
-                    body = "보드 탭에서 보드를 찾아 연결하면 상태가 여기 보입니다.",
+                    body = "세팅 탭에서 보드를 찾아 연결하면 상태가 여기 보입니다.",
                 )
             }
         }

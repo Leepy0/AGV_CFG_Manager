@@ -128,7 +128,7 @@ class ApplyRunner(
         }
         try {
             if (before == null || session.state.value.link != LinkStatus.Connected) {
-                finished = notReady("장치에 연결되지 않았습니다. 보드 탭에서 연결하세요.")
+                finished = notReady("장치에 연결되지 않았습니다. 세팅 탭에서 연결하세요.")
             } else {
                 val request = ApplyRequest(before = before, target = target, saveOnly = saveOnly)
                 finished = session.withExclusive { channel ->
@@ -139,7 +139,7 @@ class ApplyRunner(
             withContext(NonCancellable) { conclude(finished ?: cancelledResult(), target, saveOnly, before, meta) }
             throw cancelled
         } catch (lost: BridgeChannelException) {
-            finished = notReady("장치와 연결돼 있지 않습니다. 보드 탭에서 다시 연결하세요.")
+            finished = notReady("장치와 연결돼 있지 않습니다. 세팅 탭에서 다시 연결하세요.")
         }
         conclude(finished ?: notReady("적용 결과를 받지 못했습니다."), target, saveOnly, before, meta)
     }

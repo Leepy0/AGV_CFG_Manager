@@ -474,7 +474,7 @@ class BridgeSession(
                 lock.withLock {
                     dropLinkLocked(
                         LinkStatus.Disconnected,
-                        notice = "다시 연결하지 못했습니다. 보드 탭에서 다시 찾으세요.",
+                        notice = "다시 연결하지 못했습니다. 세팅 탭에서 다시 찾으세요.",
                     )
                 }
             }
@@ -485,7 +485,7 @@ class BridgeSession(
         if (stateFlow.value.link != LinkStatus.Connected || userClosed || workflowRunning) return
         if (clock() - lastActivityMs >= IDLE_LIMIT_MS) {
             journal("5분 유휴로 끊음")
-            disconnect(notice = "5분 동안 사용하지 않아 연결을 끊었습니다. 다시 연결하려면 보드 탭에서 찾으세요.")
+            disconnect(notice = "5분 동안 사용하지 않아 연결을 끊었습니다. 다시 연결하려면 세팅 탭에서 찾으세요.")
         }
     }
 

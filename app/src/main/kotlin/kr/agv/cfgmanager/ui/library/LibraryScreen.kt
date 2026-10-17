@@ -87,7 +87,7 @@ fun LibraryRoute(container: AppContainer) {
     if (entries.isEmpty()) {
         StatePanel(
             title = "저장된 SSID 가 없습니다",
-            body = "적용에 성공하면 SSID 와 비밀번호가 자동으로 저장됩니다. 저장을 끄려면 설정 탭의 체크를 끄세요.",
+            body = "적용에 성공하면 SSID 와 비밀번호가 자동으로 저장됩니다. 저장을 끄려면 세팅 탭의 체크를 끄세요.",
         )
         return
     }

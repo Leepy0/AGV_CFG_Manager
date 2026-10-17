@@ -84,7 +84,7 @@ object ApplyMessages {
             is ApplyFailure.InvalidValue -> ResultView(
                 "브리지가 ${failure.key.wire} 값을 거부했습니다",
                 stepLabel(step),
-                "저장하지 않았습니다. 설정 탭에서 ${failure.key.wire} 항목을 고친 뒤 다시 적용하세요.",
+                "저장하지 않았습니다. 세팅 탭에서 ${failure.key.wire} 항목을 고친 뒤 다시 적용하세요.",
                 false,
                 listOf(ResultAction.Retry, ResultAction.Console),
             )
@@ -101,7 +101,7 @@ object ApplyMessages {
                 if (saved) {
                     "저장 여부가 확실하지 않습니다. 진단 탭의 상태(stat)로 확인하세요."
                 } else {
-                    "저장하지 않았습니다. 보드 탭에서 다시 연결한 뒤 다시 적용하세요."
+                    "저장하지 않았습니다. 세팅 탭에서 다시 연결한 뒤 다시 적용하세요."
                 },
                 false,
                 if (saved) listOf(ResultAction.Console, ResultAction.Boards) else listOf(ResultAction.Retry, ResultAction.Boards),
@@ -137,7 +137,7 @@ object ApplyMessages {
             ApplyFailure.ReconnectTimeout -> ResultView(
                 "재부팅 뒤 보드가 다시 보이지 않습니다",
                 stepLabel(step),
-                "저장은 끝났습니다. 전원과 거리를 확인하고 보드 탭에서 다시 찾으세요.",
+                "저장은 끝났습니다. 전원과 거리를 확인하고 세팅 탭에서 다시 찾으세요.",
                 false,
                 listOf(ResultAction.Boards),
             )

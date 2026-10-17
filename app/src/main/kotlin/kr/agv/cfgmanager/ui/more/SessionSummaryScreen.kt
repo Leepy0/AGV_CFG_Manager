@@ -47,7 +47,7 @@ fun SessionSummaryScreen(container: AppContainer, onMessage: (String) -> Unit) {
     if (done.isEmpty()) {
         StatePanel(
             title = "아직 설정한 호기가 없습니다",
-            body = "설정 탭에서 연속 모드를 켜고 보드를 하나씩 설정하면 여기에 쌓입니다.",
+            body = "세팅 탭에서 연속 모드를 켜고 보드를 하나씩 설정하면 여기에 쌓입니다.",
         )
         return
     }

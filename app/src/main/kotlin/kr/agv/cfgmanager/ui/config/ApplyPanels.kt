@@ -190,7 +190,7 @@ private fun actionLabel(action: ResultAction, nextAgv: Int?): String = when (act
     ResultAction.Retry -> "다시 시도"
     ResultAction.Console -> "콘솔 보기"
     ResultAction.Reboot -> "재부팅"
-    ResultAction.Boards -> "보드 탭으로"
+    ResultAction.Boards -> "다른 보드 고르기"
     ResultAction.CloseSetup -> "설정 모드 닫기"
     ResultAction.Dismiss -> "확인"
 }

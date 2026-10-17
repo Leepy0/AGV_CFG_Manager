@@ -150,18 +150,31 @@ private fun FormBody(
         ui.notice?.let { NoticeLine(it, isError = true) }
         if (draft == null) {
             Text(
-                "보드 탭에서 장치를 연결하면 설정 값이 여기에 채워집니다.",
+                "보드를 연결하면 설정 값이 여기에 채워집니다.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedButton(
                 onClick = onOpenBoards,
                 modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
-            ) { Text("보드 탭으로") }
+            ) { Text("다른 보드 고르기") }
             return@Column
         }
         val editable = ui.linked
         AgvNumberRow(ui, vm, editable)
+        SummaryCard(ui)
+        // 프로필이 값을 다 채우므로 보통은 호기 번호만 바꾸고 [적용] 한다. 세부 값은 접어 두고, 오류가 있으면 펼친다.
+        val detailsOpen = FormGroup.Details in ui.expanded || (ui.check?.errorCount ?: 0) > 0
+        ExpandRow(
+            title = "세부 값 편집",
+            summary = "Wi-Fi 비밀번호 · 네트워크 · 서버 · 고급",
+            expanded = detailsOpen,
+            onToggle = { vm.toggleGroup(FormGroup.Details) },
+        )
+        if (!detailsOpen) {
+            Spacer(modifier = Modifier.size(AgvSpacing.Xl))
+            return@Column
+        }
         SectionTitle("Wi-Fi")
         SsidField(ui, vm, editable)
         PasswordField(ui, vm, editable)
@@ -359,6 +372,50 @@ private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolea
             }
         }
         FieldMessageLine(message)
+    }
+}
+
+/** 지금 적용될 핵심 값 요약. 바뀌는 항목에는 "변경" 표식이 붙는다. 세부 값을 열지 않아도 무엇이 나가는지 보인다. */
+@Composable
+private fun SummaryCard(ui: SettingsUi) {
+    val draft = ui.draft ?: return
+    val pass = draft.raw(ConfigKey.PASS)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(
+            modifier = Modifier.padding(AgvSpacing.M),
+            verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
+        ) {
+            Text("적용할 값", style = MaterialTheme.typography.titleSmall)
+            SummaryLine("Wi-Fi", draft.raw(ConfigKey.SSID).ifEmpty { "—" }, ConfigKey.SSID in ui.changed)
+            SummaryLine(
+                "비밀번호",
+                if (pass.isEmpty()) "장치에 있는 값 유지" else "입력됨 (${pass.length}자)",
+                ConfigKey.PASS in ui.changed,
+            )
+            SummaryLine("IP", draft.raw(ConfigKey.IP).ifEmpty { "—" }, ConfigKey.IP in ui.changed)
+            SummaryLine(
+                "서버",
+                "${draft.raw(ConfigKey.SERVER).ifEmpty { "—" }}:${draft.raw(ConfigKey.SERVER_PORT)}",
+                ConfigKey.SERVER in ui.changed || ConfigKey.SERVER_PORT in ui.changed,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryLine(label: String, value: String, changed: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(AgvSizes.LabelColumn))
+        Text(value, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        if (changed) {
+            StatusIcon(Icons.Filled.Edit, AgvTheme.status.warn)
+            Spacer(modifier = Modifier.width(AgvSpacing.Xxs))
+            Text("변경", style = MaterialTheme.typography.labelMedium, color = AgvTheme.status.warn)
+        }
     }
 }
 
@@ -581,7 +638,7 @@ private fun ExpandRow(title: String, summary: String, expanded: Boolean, onToggl
 private fun BottomBar(ui: SettingsUi, vm: SettingsViewModel) {
     val check = ui.check
     val summary = when {
-        ui.draft == null -> "보드 탭에서 연결하세요"
+        ui.draft == null -> "세팅 탭에서 연결하세요"
         !ui.linked -> "연결이 끊겨 적용할 수 없습니다"
         check == null -> ""
         check.errorCount > 0 -> "변경 ${ui.changed.size}개 · 오류 ${check.errorCount}"

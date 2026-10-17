@@ -86,7 +86,7 @@ fun AppSettingsScreen(container: AppContainer) {
         )
         SwitchRow(
             label = "연속 모드를 기본으로 켜기",
-            note = "설정 탭에서 연속 모드를 켤 때의 기본값입니다.",
+            note = "세팅 탭에서 연속 모드를 켤 때의 기본값입니다.",
             checked = settings.batchByDefault,
             onToggle = { container.settings.update { it.copy(batchByDefault = !it.batchByDefault) } },
         )

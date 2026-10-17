@@ -18,6 +18,9 @@ sealed interface ScanError {
 /** 보드 탭의 화면 상태 4가지 (Loading / Empty / Error / Content). */
 enum class BoardsView { Loading, Empty, Error, Content }
 
+/** 프로필 고르기 한 항목. */
+data class ProfileOption(val id: String, val name: String)
+
 /** 연결 시트. [stage] 는 진행 중 단계, [failure] 는 마지막 실패. [password] 는 활성 프로필의 BLE 비밀번호로 시작한다. */
 data class ConnectSheet(
     val row: BoardRow,
@@ -41,6 +44,11 @@ data class BoardsUi(
     val historyAgv: Map<String, Int> = emptyMap(),
     /** 연속 세팅이 켜져 있을 때 상단 배너 ("다음: 8호기 · 본사 1공장"). */
     val batchBanner: String? = null,
+    /** 현장 프로필 선택 (보드를 찾기 전에 고른다: 연결 로그인 비밀번호와 채울 값이 여기서 정해진다). */
+    val profiles: List<ProfileOption> = emptyList(),
+    val selectedProfileId: String? = null,
+    /** 고른 프로필의 이력 기준 다음 호기 번호 제안. */
+    val nextAgv: Int? = null,
 ) {
     /** 목록이 있으면 오류는 위 배너로 보인다 (USB 행은 블루투스가 꺼져도 나온다). 목록이 없고 오류면 Error. */
     val view: BoardsView
