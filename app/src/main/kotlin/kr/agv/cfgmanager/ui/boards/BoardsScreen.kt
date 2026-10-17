@@ -358,11 +358,16 @@ private fun ScanErrorBanner(
 ) {
     val (primary, _) = errorActions(error, onErrorAction, onOpenAppSettings)
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = AgvSpacing.S)) {
-        Text(
-            ScanErrorText.title(error),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
-        )
+        // 블루투스가 막혀도 USB 로는 작업할 수 있으니 알람(빨강)이 아니라 경고(주의색 + 아이콘 + 글자)로 보인다.
+        Row(verticalAlignment = Alignment.Top) {
+            Icon(Icons.Filled.Warning, contentDescription = null, tint = AgvTheme.status.warn)
+            Spacer(modifier = Modifier.width(AgvSpacing.S))
+            Text(
+                ScanErrorText.title(error),
+                style = MaterialTheme.typography.bodyMedium,
+                color = AgvTheme.status.warn,
+            )
+        }
         Text(
             "USB 로 연결한 보드는 계속 보입니다.",
             style = MaterialTheme.typography.bodySmall,
