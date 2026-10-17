@@ -57,15 +57,8 @@ class ProfileEditViewModel(private val container: AppContainer, private val prof
         viewModelScope.launch {
             val doc = profiles.load()
             val form = if (profileId == null) {
-                val now = nowIso()
-                ProfileForm.of(
-                    ProfileTemplate.headquarters(now).copy(
-                        id = UUID.randomUUID().toString(),
-                        name = "새 프로필",
-                        notes = "",
-                        ssid = "",
-                    ),
-                )
+                val base = doc.profiles.firstOrNull { it.id == ProfileTemplate.HEADQUARTERS_ID }
+                ProfileForm.of(ProfileTemplate.newProfileFrom(base, UUID.randomUUID().toString(), nowIso()))
             } else {
                 doc.profiles.firstOrNull { it.id == profileId }?.let { ProfileForm.of(it) }
             }
