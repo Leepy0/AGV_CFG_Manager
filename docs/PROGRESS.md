@@ -35,6 +35,10 @@ LANG=C.UTF-8 LC_ALL=C.UTF-8 ./gradlew :core:test :app:testDebugUnitTest :app:ass
 - 정식 `v0.1.0` 은 만들지 않았다(secrets 없음). 절차는 README "릴리스" 절. 계획과 다른 점은 계획서 11장 "현황" 과 DECISIONS.md.
 - 남은 결정: 패키지명 확정(계획 14장 7, 정식 릴리스 전 필수). 본사 프로필 값(14장 5).
 
+## 취합 검증 (오케스트레이터, Phase 6 뒤)
+
+`LANG=C.UTF-8 LC_ALL=C.UTF-8 ./gradlew :core:cleanTest :core:test :app:cleanTestDebugUnitTest :app:testDebugUnitTest :app:assembleDebug` → EXIT 0, core 213 / app 125 테스트 실패 0, `app-debug.apk` 생성(약 11.5MB). 커밋 메시지에 트레일러 · 모델 이름 없음, keystore · local.properties 미추적 확인. Actions 실행 · 실기 검증은 하지 않음.
+
 ## 계획서에서 소스 기준으로 정정한 것 (Phase 1)
 
 - 설정 키는 17개가 아니라 **16개**.
