@@ -2,6 +2,9 @@ package kr.agv.cfgmanager.session
 
 import kr.agv.cfgmanager.core.bridge.CfgState
 import kr.agv.cfgmanager.core.bridge.DeviceSnapshot
+import kr.agv.cfgmanager.core.bridge.BridgeStatus
+import kr.agv.cfgmanager.core.bridge.StatSource
+import kr.agv.cfgmanager.core.bridge.WifiStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -62,5 +65,34 @@ class ConnectionChipMapperTest {
         assertEquals("기본값", ConnectionChipMapper.cfgLabel(CfgState.DEFAULT))
         assertEquals("확인 대기", ConnectionChipMapper.cfgLabel(CfgState.TRIAL))
         assertEquals("미확인", ConnectionChipMapper.cfgLabel(null))
+    }
+
+    private fun statusOf(up: Boolean, rssi: Int?) = BridgeStatus(
+        source = StatSource.Ble, fw = "0.5.5", part = null, ota = null, cfgState = CfgState.SAVED,
+        wifi = WifiStatus(up = up, mac = null, ip = "192.168.10.107", rssi = rssi, channel = 6, bssid = null),
+        net = null, setup = null, dsp = null, heapBytes = null,
+    )
+
+    private fun connected(status: BridgeStatus?) = SessionState(
+        link = LinkStatus.Connected,
+        name = "AGVBR-07-A1B2",
+        fw = "0.5.5",
+        snapshot = snapshot(CfgState.SAVED, readAt = 10_000).copy(status = status),
+    )
+
+    
+    @Test
+    fun `연결됨 칩의 둘째 줄에 Wi-Fi 상태와 신호 세기가 마지막 읽기 앞에 붙는다`() {
+        val chip = ConnectionChipMapper.map(connected(statusOf(up = true, rssi = -52)), nowMs = 13_000)
+        assertEquals("Wi-Fi 연결됨 -52dBm · 마지막 읽기 3초 전", chip.detail)
+    }
+
+    
+    @Test
+    fun `Wi-Fi 가 끊겼으면 끊김이라고 적고 게이트웨이가 답하면 한 마디 더 적는다`() {
+        val down = ConnectionChipMapper.map(connected(statusOf(up = false, rssi = null)), nowMs = 13_000)
+        assertEquals("Wi-Fi 끊김 · 마지막 읽기 3초 전", down.detail)
+        val up = ConnectionChipMapper.map(connected(statusOf(up = true, rssi = -52)), nowMs = 13_000, gatewayUp = true)
+        assertEquals("Wi-Fi 연결됨 -52dBm · 게이트웨이 응답 · 마지막 읽기 3초 전", up.detail)
     }
 }

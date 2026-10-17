@@ -36,7 +36,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kr.agv.cfgmanager.AppContainer
 import kr.agv.cfgmanager.R
+import kr.agv.cfgmanager.core.bridge.ConfigKey
 import kr.agv.cfgmanager.apply.ApplyUi
+import kr.agv.cfgmanager.net.GatewayProbe
+import kr.agv.cfgmanager.net.GatewayResult
 import kr.agv.cfgmanager.session.ConnectionChipMapper
 import kr.agv.cfgmanager.session.LinkStatus
 
@@ -73,7 +76,28 @@ fun AppRoot(container: AppContainer) {
             delay(1_000L)
         }
     }
-    val chip = ConnectionChipMapper.map(sessionState, nowMs)
+    val connected = sessionState.link == LinkStatus.Connected
+
+    // 연결 중에는 10초마다 stat 을 다시 읽어 칩의 Wi-Fi 상태를 최신으로 둔다. 적용 중에는 세션이 거절한다.
+    LaunchedEffect(connected) {
+        while (connected) {
+            delay(STATUS_REFRESH_MS)
+            container.session.refreshStatus(auto = true)
+        }
+    }
+
+    // 장치의 server 로 게이트웨이 화면이 답하는지 15초마다 본다. 답할 때만 칩에 적는다.
+    val server = sessionState.snapshot?.config?.canonical(ConfigKey.SERVER)
+    val gatewayUp by produceState(false, connected, server) {
+        value = false
+        if (!connected || server == null) return@produceState
+        val probe = GatewayProbe()
+        while (true) {
+            value = probe.check(server) is GatewayResult.Responded
+            delay(GATEWAY_CHECK_MS)
+        }
+    }
+    val chip = ConnectionChipMapper.map(sessionState, nowMs, gatewayUp)
 
     // 연결 중이거나 적용 중에는 화면이 꺼지지 않게 한다 (F-C4, F-A6).
     val keepOn = sessionState.link != LinkStatus.Disconnected || applyState is ApplyUi.Running
@@ -204,6 +228,8 @@ fun AppRoot(container: AppContainer) {
     }
 }
 
+private const val STATUS_REFRESH_MS = 10_000L
+private const val GATEWAY_CHECK_MS = 15_000L
 private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_LIBRARY = "library"
 private const val ROUTE_TRIP = "trip"

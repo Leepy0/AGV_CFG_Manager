@@ -2,6 +2,7 @@ package kr.agv.cfgmanager.session
 
 import kr.agv.cfgmanager.core.bridge.CfgState
 import kr.agv.cfgmanager.core.bridge.DeviceSnapshot
+import kr.agv.cfgmanager.core.bridge.WifiStatus
 
 /** 연결 상태 (상단 칩의 원천). */
 enum class LinkStatus { Disconnected, Connecting, Connected, Rebooting, Reconnecting }
@@ -24,11 +25,11 @@ enum class ChipTone { Neutral, Ok, Warn }
 data class ChipUi(val label: String, val tone: ChipTone, val detail: String?)
 
 object ConnectionChipMapper {
-    fun map(state: SessionState, nowMs: Long): ChipUi = when (state.link) {
+    fun map(state: SessionState, nowMs: Long, gatewayUp: Boolean = false): ChipUi = when (state.link) {
         LinkStatus.Connected -> ChipUi(
             label = "연결됨 · ${state.name ?: "이름 미확인"} · fw ${state.fw ?: "?"} · cfg ${cfgLabel(state.snapshot?.cfgState)}",
             tone = ChipTone.Ok,
-            detail = state.snapshot?.readAt?.let { lastReadText(it, nowMs) },
+            detail = connectedDetail(state, nowMs, gatewayUp),
         )
         LinkStatus.Connecting -> ChipUi("연결 중", ChipTone.Neutral, null)
         LinkStatus.Rebooting -> ChipUi("재부팅 대기", ChipTone.Neutral, "보드가 다시 켜질 때까지 기다립니다")
@@ -40,6 +41,25 @@ object ConnectionChipMapper {
         LinkStatus.Disconnected ->
             if (state.scanning) ChipUi("찾는 중", ChipTone.Neutral, null)
             else ChipUi("끊김", ChipTone.Warn, state.notice)
+    }
+
+    /**
+     * 연결됨 칩의 둘째 줄: Wi-Fi 상태(마지막 stat) · 게이트웨이 응답 · 마지막 읽기.
+     * 게이트웨이는 응답이 올 때만 적는다 (휴대폰이 다른 망에 있으면 응답이 없는 것이 정상이라 부정 표시는 하지 않는다).
+     */
+    fun connectedDetail(state: SessionState, nowMs: Long, gatewayUp: Boolean): String? {
+        val parts = listOfNotNull(
+            wifiText(state.snapshot?.status?.wifi),
+            if (gatewayUp) "게이트웨이 응답" else null,
+            state.snapshot?.readAt?.let { lastReadText(it, nowMs) },
+        )
+        return parts.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    }
+
+    fun wifiText(wifi: WifiStatus?): String? = when {
+        wifi == null -> null
+        wifi.up -> "Wi-Fi 연결됨" + (wifi.rssi?.let { " ${it}dBm" } ?: "")
+        else -> "Wi-Fi 끊김"
     }
 
     fun cfgLabel(state: CfgState?): String = when (state) {

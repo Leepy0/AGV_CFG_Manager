@@ -1,5 +1,6 @@
 package kr.agv.cfgmanager.ui.boards
 
+import kr.agv.cfgmanager.ble.isStale
 import kr.agv.cfgmanager.session.BoardRow
 import kr.agv.cfgmanager.session.ConnectFailure
 import kr.agv.cfgmanager.session.ConnectStage
@@ -17,6 +18,15 @@ sealed interface ScanError {
 
 /** 보드 탭의 화면 상태 4가지 (Loading / Empty / Error / Content). */
 enum class BoardsView { Loading, Empty, Error, Content }
+
+/** 가장 가까운 새 보드를 자동으로 고르는 기준 (docs/DECISIONS.md). */
+object AutoPick {
+    const val MIN_RSSI = -50
+    const val MARGIN_DB = 15
+
+    /** 같은 후보가 이 횟수만큼 연속으로 목록 갱신(약 2초 간격)에 나와야 연다. 신호 흔들림으로 잘못 여는 것을 막는다. */
+    const val STABLE_TICKS = 2
+}
 
 /** 프로필 고르기 한 항목. */
 data class ProfileOption(val id: String, val name: String)
@@ -70,6 +80,21 @@ data class BoardsUi(
 
     fun isUnset(row: BoardRow): Boolean =
         historyAgv[row.address.uppercase()] == null && (row.agvNumber == null || row.agvNumber == 1)
+
+    /**
+     * 자동으로 연결 시트를 열 보드. 방금 보이는 BLE 보드 중 설정 없는 보드가 가장 세고(-50dBm 이상),
+     * 다른 보이는 보드와 15dB 이상 차이가 날 때만 있다. 애매하면 null 이라 사용자가 직접 고른다.
+     */
+    fun autoPickCandidate(): BoardRow? {
+        val fresh = rows.filter { !it.isUsb && !it.isStale(nowMs) }
+        val best = fresh
+            .filter { isUnset(it) && it.address.uppercase() !in doneAddresses }
+            .maxByOrNull { it.rssi }
+            ?: return null
+        if (best.rssi < AutoPick.MIN_RSSI) return null
+        val runnerUp = fresh.filter { it.address != best.address }.maxOfOrNull { it.rssi }
+        return if (runnerUp == null || best.rssi - runnerUp >= AutoPick.MARGIN_DB) best else null
+    }
 }
 
 /** 스캔 오류 문구 (무엇 · 왜 · 다음 행동). 예외 원문은 넣지 않는다. */

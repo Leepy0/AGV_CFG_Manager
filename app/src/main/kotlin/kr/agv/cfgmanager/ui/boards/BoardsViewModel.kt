@@ -48,6 +48,9 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
     private var connectJob: Job? = null
     private var lastStartMs = 0L
     private var historyEntries: List<HistoryEntry> = emptyList()
+    private var autoPickAddress: String? = null
+    private var autoPickTicks = 0
+    private var autoPicked = false
 
     init {
         reloadHistory()
@@ -86,6 +89,34 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
         if (row.isUsb || _ui.value.sheet?.password.orEmpty().isNotEmpty()) connect()
     }
 
+    private fun resetAutoPick() {
+        autoPickAddress = null
+        autoPickTicks = 0
+        autoPicked = false
+    }
+
+    /**
+     * 가장 가까운 새 보드가 뚜렷하면(`autoPickCandidate`) 연결 시트를 바로 연다. 연결은 사용자가 누른다(잘못된 보드 방지).
+     * 같은 후보가 연속 [AutoPick.STABLE_TICKS] 번 나와야 하고, 한 번 스캔에 한 번만 연다.
+     */
+    private fun maybeAutoPick() {
+        if (autoPicked || _ui.value.sheet != null) return
+        val candidate = _ui.value.autoPickCandidate()
+        if (candidate == null) {
+            resetAutoPick()
+            return
+        }
+        if (candidate.address == autoPickAddress) autoPickTicks++ else {
+            autoPickAddress = candidate.address
+            autoPickTicks = 1
+        }
+        if (autoPickTicks >= AutoPick.STABLE_TICKS) {
+            autoPicked = true
+            stopScan()
+            openSheet(candidate)
+        }
+    }
+
     private fun refreshProfiles(doc: ProfileDocument?) {
         val options = doc?.profiles?.map { ProfileOption(it.id, it.name) }.orEmpty()
         val selected = doc?.profiles?.firstOrNull { it.id == doc.lastProfileId }?.id
@@ -112,6 +143,7 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
         }
         lastStartMs = now
         reloadHistory()
+        resetAutoPick()
         _ui.update {
             it.copy(scanState = ScanState.Scanning, rows = emptyList(), nowMs = now, scanStartedMs = now, error = wirelessBlock, notice = null)
         }
@@ -134,6 +166,7 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
                 }
                 rowsFlow.collect { rows: List<BoardRow> ->
                     _ui.update { it.copy(rows = rows, nowMs = now()) }
+                    maybeAutoPick()
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
