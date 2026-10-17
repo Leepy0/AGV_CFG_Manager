@@ -1,13 +1,16 @@
-# .NET
-bin/
-obj/
-*.user
-*.suo
-.vs/
-TestResults/
-publish/
-dist/
-*.nupkg
+# Android / Gradle
+*.iml
+.gradle/
+build/
+local.properties
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
 
 # 로컬 산출물
 *.log
