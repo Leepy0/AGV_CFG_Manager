@@ -23,7 +23,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -173,14 +176,23 @@ fun DiagnosticsRoute(container: AppContainer) {
             Text(it, style = MaterialTheme.typography.bodySmall, color = AgvTheme.status.alarm)
         }
         // 공장 초기화는 되돌릴 수 없으므로 스크롤 맨 끝에 두어 하단의 주요 행동 [새로고침] 과 멀리 떨어뜨린다.
-        Spacer(modifier = Modifier.size(AgvSpacing.Xl))
-        HorizontalDivider()
-        TextButton(
-            onClick = { resetAsk = true },
-            enabled = connected && !ui.resetBusy && snapshot != null,
-            modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin).padding(bottom = AgvSpacing.M),
-        ) {
-            Text("공장 초기화…", color = MaterialTheme.colorScheme.error)
+        // 연결된 장치가 없으면 쓸 수 없으니 숨긴다. 초기화 중에는 회색(비활성)으로 둔다. 글자만 두면 버튼으로 안 보여서 테두리 버튼으로 그린다.
+        if (connected && snapshot != null) {
+            Spacer(modifier = Modifier.size(AgvSpacing.Xl))
+            HorizontalDivider()
+            val resetEnabled = !ui.resetBusy
+            OutlinedButton(
+                onClick = { resetAsk = true },
+                enabled = resetEnabled,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                border = BorderStroke(
+                    AgvSizes.Stroke,
+                    if (resetEnabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant,
+                ),
+                modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin).padding(bottom = AgvSpacing.M),
+            ) {
+                Text(if (ui.resetBusy) "초기화 중…" else "공장 초기화…")
+            }
         }
     }
     Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {

@@ -74,6 +74,7 @@ object AgvSizes {
     val CardRadius = 8.dp
     val QrSize = 240.dp
     val ConsoleHeight = 200.dp
+    val Stroke = 1.dp
 }
 
 /**
