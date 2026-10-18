@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -183,6 +184,22 @@ class BoardsViewModel(private val container: AppContainer) : ViewModel() {
     /** 자동 중지 전에 사용자가 멈춘다. */
     fun stopScan() {
         scanJob?.cancel()
+    }
+
+    /** 권한 · 블루투스 · 위치를 사용자가 바꾼 뒤: 진행 중인 스캔을 끝내고 간격 제한 없이 다시 검사해 시작한다. */
+    fun rescanNow() {
+        viewModelScope.launch {
+            scanJob?.cancelAndJoin()
+            lastStartMs = 0L
+            startScan()
+        }
+    }
+
+    /** 화면에 돌아왔을 때: 막혀 있던 이유가 풀렸으면 다시 시작한다 (설정 앱에서 허용하고 온 경우). */
+    fun retryIfUnblocked() {
+        val blocked = _ui.value.error ?: return
+        if (blocked == ScanError.Failed) return
+        if (container.isFakeMode() || wirelessBlockOf(container.preflight.check()) == null) rescanNow()
     }
 
     fun openSheet(row: BoardRow) {
