@@ -8,7 +8,7 @@ import kr.agv.cfgmanager.core.workflows.ApplyStep
 
 /** 결과 카드의 다음 행동. 버튼 문구와 동작은 화면에서 정한다. */
 /** [NextAgv]: 연속 모드에서 다음 호기로 (보드 탭으로 돌아가며 번호를 넘긴다). */
-enum class ResultAction { NextAgv, Retry, Console, Reboot, Boards, CloseSetup, Dismiss }
+enum class ResultAction { NextAgv, NextBoard, Retry, Console, Reboot, Boards, CloseSetup, Dismiss }
 
 /** 결과 카드 한 장의 문구. 무엇 · 왜 · 다음 행동 (docs/DEVELOPMENT_PLAN.md 9). */
 data class ResultView(
@@ -40,10 +40,11 @@ object ApplyMessages {
             step = null,
             cause = "저장하고 재부팅했으며 Wi-Fi 에 연결됐습니다.",
             success = true,
+            // 다음 보드로 가는 것이 현장에서 가장 흔한 다음 행동이다. 연속 모드가 아니어도 첫 버튼으로 둔다.
             actions = if (nextAgv != null) {
                 listOf(ResultAction.NextAgv, ResultAction.CloseSetup, ResultAction.Dismiss)
             } else {
-                listOf(ResultAction.CloseSetup, ResultAction.Dismiss)
+                listOf(ResultAction.NextBoard, ResultAction.CloseSetup, ResultAction.Dismiss)
             },
         )
         ApplyOutcome.SavedOnly -> ResultView(
@@ -54,7 +55,7 @@ object ApplyMessages {
             actions = if (nextAgv != null) {
                 listOf(ResultAction.NextAgv, ResultAction.Reboot, ResultAction.Dismiss)
             } else {
-                listOf(ResultAction.Reboot, ResultAction.Dismiss)
+                listOf(ResultAction.Reboot, ResultAction.NextBoard, ResultAction.Dismiss)
             },
         )
         ApplyOutcome.NoChange -> ResultView(

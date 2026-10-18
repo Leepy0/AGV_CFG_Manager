@@ -96,7 +96,7 @@ fun LibraryRoute(container: AppContainer) {
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = AgvSpacing.S)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(entry.ssid, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(entry.ssid, style = MaterialTheme.typography.titleMedium)
                         Text(
                             "마지막 사용 ${entry.lastUsedAt?.take(10) ?: "—"} · ${entry.useCount}회",
                             style = MaterialTheme.typography.bodyMedium,
@@ -106,8 +106,12 @@ fun LibraryRoute(container: AppContainer) {
                     TextButton(onClick = { vm.toggleReveal(entry.ssid) }, modifier = Modifier.heightIn(min = AgvSizes.TouchMin)) {
                         Text(if (revealed.containsKey(entry.ssid)) "숨기기" else "비밀번호 보기")
                     }
-                    TextButton(onClick = { confirm = entry.ssid }, modifier = Modifier.heightIn(min = AgvSizes.TouchMin)) {
-                        Text("삭제")
+                    // 삭제는 보기와 떨어뜨리고 위험색으로 구분한다.
+                    TextButton(
+                        onClick = { confirm = entry.ssid },
+                        modifier = Modifier.padding(start = AgvSpacing.L).heightIn(min = AgvSizes.TouchMin),
+                    ) {
+                        Text("삭제", color = MaterialTheme.colorScheme.error)
                     }
                 }
                 revealed[entry.ssid]?.let { text ->

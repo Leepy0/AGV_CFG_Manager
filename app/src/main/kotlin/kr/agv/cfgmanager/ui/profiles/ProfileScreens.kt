@@ -14,6 +14,7 @@ import com.journeyapps.barcodescanner.ScanOptions
 import kr.agv.cfgmanager.ui.theme.AgvQrColors
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -144,17 +147,33 @@ fun ProfileListRoute(container: AppContainer, onOpenProfile: (String?) -> Unit) 
         }
     }
 
+    var importMenu by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = AgvSpacing.L)) {
         Spacer(modifier = Modifier.size(AgvSpacing.S))
+        // 주요 행동은 하단 [새 프로필] 하나. 가져오기 · 내보내기는 보조 두 개로 줄여 한 줄에 글자가 꺾이지 않게 한다.
         Row(horizontalArrangement = Arrangement.spacedBy(AgvSpacing.S)) {
-            OutlinedButton(
-                onClick = { openLauncher.launch(arrayOf("application/json", "*/*")) },
-                modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin),
-            ) { Text("파일 가져오기") }
-            OutlinedButton(
-                onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) },
-                modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin),
-            ) { Text("QR 가져오기") }
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = { importMenu = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+                ) { Text("가져오기") }
+                DropdownMenu(expanded = importMenu, onDismissRequest = { importMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("파일에서") },
+                        onClick = {
+                            importMenu = false
+                            openLauncher.launch(arrayOf("application/json", "*/*"))
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("QR 로") },
+                        onClick = {
+                            importMenu = false
+                            cameraLauncher.launch(Manifest.permission.CAMERA)
+                        },
+                    )
+                }
+            }
             OutlinedButton(onClick = { exportOpen = true }, modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin)) {
                 Text("내보내기")
             }
@@ -262,7 +281,8 @@ private fun ProfileRow(profile: Profile, active: Boolean, onClick: () -> Unit) {
             )
         }
         if (active) {
-            Icon(Icons.Filled.Info, contentDescription = "마지막 사용 프로필", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            // 아이콘만 두면 뜻을 알 수 없다. 글자로 적는다.
+            Text("현재 선택", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -408,6 +428,17 @@ fun ProfileEditRoute(container: AppContainer, profileId: String?, onBack: () -> 
                 modifier = Modifier.fillMaxWidth(),
             )
             ui.issues.filter { it.field == ProfileField.BlePassword }.forEach { IssueLine(it) }
+            if (!ui.isNew) {
+                // 삭제는 되돌릴 수 없으므로 다른 버튼과 떨어진 폼 맨 끝에 두고 위험색으로 구분한다.
+                Spacer(modifier = Modifier.size(AgvSpacing.Xxl))
+                HorizontalDivider()
+                TextButton(
+                    onClick = { vm.askDelete(true) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+                ) {
+                    Text("이 프로필 삭제…", color = MaterialTheme.colorScheme.error)
+                }
+            }
             Spacer(modifier = Modifier.size(AgvSpacing.Xl))
         }
 
@@ -423,9 +454,6 @@ fun ProfileEditRoute(container: AppContainer, profileId: String?, onBack: () -> 
                     }
                     OutlinedButton(onClick = { qrOpen = true }, modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin)) {
                         Text("QR 보기")
-                    }
-                    OutlinedButton(onClick = { vm.askDelete(true) }, modifier = Modifier.weight(1f).heightIn(min = AgvSizes.TouchMin)) {
-                        Text("삭제")
                     }
                 }
             }

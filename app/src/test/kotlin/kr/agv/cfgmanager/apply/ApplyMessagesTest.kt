@@ -44,11 +44,17 @@ class ApplyMessagesTest {
     }
 
     @Test
-    fun `성공 카드는 설정 모드 닫기를 먼저 준다`() {
+    fun `성공 카드는 다음 보드 고르기를 먼저 주고 설정 모드 닫기는 그다음이다`() {
         val ok = ApplyResult(ApplyOutcome.Applied, "ok", emptySet(), true, null)
         val view = ApplyMessages.view(ok)
         assertTrue(view.success)
-        assertEquals(ResultAction.CloseSetup, view.actions.first())
+        assertEquals(listOf(ResultAction.NextBoard, ResultAction.CloseSetup, ResultAction.Dismiss), view.actions)
+    }
+
+    @Test
+    fun `연속 모드면 성공 카드의 첫 버튼은 다음 호기다`() {
+        val ok = ApplyResult(ApplyOutcome.Applied, "ok", emptySet(), true, null)
+        assertEquals(ResultAction.NextAgv, ApplyMessages.view(ok, nextAgv = 8).actions.first())
     }
 
     @Test

@@ -108,7 +108,10 @@ fun SettingsRoute(
                             ResultAction.Retry -> vm.retryApply()
                             ResultAction.Console -> onOpenConsole()
                             ResultAction.Reboot -> vm.reboot()
-                            ResultAction.Boards -> onOpenBoards()
+                            ResultAction.Boards, ResultAction.NextBoard -> {
+                                vm.dismissResult()
+                                onOpenBoards()
+                            }
                             ResultAction.CloseSetup -> vm.closeSetupMode()
                             ResultAction.Dismiss -> vm.dismissResult()
                         }
@@ -163,6 +166,13 @@ private fun FormBody(
         val editable = ui.linked
         AgvNumberRow(ui, vm, editable)
         SummaryCard(ui)
+        SwitchRow(
+            title = "연속 모드",
+            summary = "끝나면 다음 호기로 이어서 세팅합니다",
+            checked = ui.batch.enabled,
+            enabled = true,
+            onToggle = { vm.setBatch(!ui.batch.enabled) },
+        )
         // 프로필이 값을 다 채우므로 보통은 호기 번호만 바꾸고 [적용] 한다. 세부 값은 접어 두고, 오류가 있으면 펼친다.
         val detailsOpen = FormGroup.Details in ui.expanded || (ui.check?.errorCount ?: 0) > 0
         ExpandRow(
@@ -175,6 +185,13 @@ private fun FormBody(
             Spacer(modifier = Modifier.size(AgvSpacing.Xl))
             return@Column
         }
+        SwitchRow(
+            title = "저장만",
+            summary = "재부팅은 나중에 합니다",
+            checked = ui.saveOnly,
+            enabled = ui.linked,
+            onToggle = { vm.setSaveOnly(!ui.saveOnly) },
+        )
         SectionTitle("Wi-Fi")
         SsidField(ui, vm, editable)
         PasswordField(ui, vm, editable)
@@ -661,10 +678,6 @@ private fun BottomBar(ui: SettingsUi, vm: SettingsViewModel) {
             verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
         ) {
             Text(summary, style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(AgvSpacing.L)) {
-                CheckLine("저장만 (재부팅은 나중에)", ui.saveOnly, enabled = ui.linked) { vm.setSaveOnly(!ui.saveOnly) }
-                CheckLine("연속 모드", ui.batch.enabled, enabled = ui.draft != null) { vm.setBatch(!ui.batch.enabled) }
-            }
             PrimaryActionButton(
                 text = if (ui.saveOnly) "저장만" else "적용 (저장 후 재부팅)",
                 onClick = { vm.startApply() },
@@ -674,16 +687,25 @@ private fun BottomBar(ui: SettingsUi, vm: SettingsViewModel) {
     }
 }
 
+/** 켜고 끄는 선택 한 줄: 제목 · 한 줄 설명 · 스위치. 줄 전체가 누르는 영역이다 (48dp 이상). */
 @Composable
-private fun CheckLine(label: String, checked: Boolean, enabled: Boolean, onToggle: () -> Unit) {
+private fun SwitchRow(title: String, summary: String, checked: Boolean, enabled: Boolean, onToggle: () -> Unit) {
     Row(
         modifier = Modifier
-            .heightIn(min = AgvSizes.TouchMin)
-            .clickable(role = Role.Checkbox, enabled = enabled, onClick = onToggle),
+            .fillMaxWidth()
+            .heightIn(min = AgvSizes.ListRowMin)
+            .clickable(enabled = enabled, role = Role.Switch, onClick = onToggle),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
-        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+            )
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -146,16 +147,12 @@ fun BoardsContent(
             modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 스캔 중이라는 말은 상단 연결 칩("찾는 중")과 진행 막대가 이미 알린다. 여기서는 개수만 적는다.
             Text(
-                text = if (scanning) "찾는 중 … (${ui.secondsLeft()}초)" else "찾은 보드 ${ui.rows.size}대",
+                text = "찾은 보드 ${ui.rows.size}대",
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
-            if (scanning) {
-                TextButton(onClick = onStop, modifier = Modifier.heightIn(min = AgvSizes.TouchMin)) {
-                    Text("중지")
-                }
-            }
         }
         if (scanning) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -228,16 +225,24 @@ fun BoardsContent(
                 modifier = Modifier.padding(bottom = AgvSpacing.S),
             )
         }
-        PrimaryActionButton(
-            text = when (ui.scanState) {
-                ScanState.Scanning -> "찾는 중…"
-                ScanState.Idle -> "보드 찾기"
-                ScanState.Done -> "다시 찾기"
-            },
-            onClick = onPrimary,
-            enabled = !scanning,
-            modifier = Modifier.padding(bottom = AgvSpacing.M),
-        )
+        // 주요 행동은 하단에 하나: 찾는 중에는 [찾기 중지], 아니면 [보드 찾기] · [다시 찾기]. 비활성 큰 버튼을 두지 않는다.
+        if (scanning) {
+            OutlinedButton(
+                onClick = onStop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(AgvSizes.PrimaryAction)
+                    .padding(bottom = AgvSpacing.M),
+            ) {
+                Text("찾기 중지", style = MaterialTheme.typography.titleMedium)
+            }
+        } else {
+            PrimaryActionButton(
+                text = if (ui.scanState == ScanState.Idle) "보드 찾기" else "다시 찾기",
+                onClick = onPrimary,
+                modifier = Modifier.padding(bottom = AgvSpacing.M),
+            )
+        }
     }
 
     ui.sheet?.let { sheet ->

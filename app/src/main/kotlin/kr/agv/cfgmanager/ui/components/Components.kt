@@ -27,6 +27,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kr.agv.cfgmanager.session.ChipTone
@@ -69,7 +70,7 @@ fun StatePanel(
     isError: Boolean = false,
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(vertical = AgvSpacing.L),
+        modifier = modifier.fillMaxWidth().padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.L),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
     ) {
@@ -87,6 +88,7 @@ fun StatePanel(
                 it,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
         }
         primary?.let {

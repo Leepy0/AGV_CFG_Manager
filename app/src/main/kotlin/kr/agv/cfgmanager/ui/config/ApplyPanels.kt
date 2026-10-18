@@ -19,6 +19,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -115,9 +117,11 @@ private fun ProgressLine(row: ProgressRow, state: RowState, detail: String?) {
 fun ResultPanel(done: ApplyUi.Done, notice: String?, nextAgv: Int?, onAction: (ResultAction) -> Unit) {
     val view = ApplyMessages.view(done.result, nextAgv)
     val device = done.result.after
+    // 위: 결과 내용(스크롤). 아래: 다음 행동 버튼(하단 고정). 주요 행동은 화면 하단에 하나, 나머지는 보조 · 텍스트로 낮춘다.
+    Column(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .weight(1f)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.M),
         verticalArrangement = Arrangement.spacedBy(AgvSpacing.M),
@@ -157,18 +161,34 @@ fun ResultPanel(done: ApplyUi.Done, notice: String?, nextAgv: Int?, onAction: (R
             Text(it, style = MaterialTheme.typography.bodySmall, color = AgvTheme.status.alarm)
         }
 
-        val primary = view.actions.firstOrNull()
-        primary?.let { first ->
-            PrimaryActionButton(text = actionLabel(first, nextAgv), onClick = { onAction(first) })
-        }
-        view.actions.drop(1).forEach { action ->
-            OutlinedButton(
-                onClick = { onAction(action) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
-            ) {
-                Text(actionLabel(action, nextAgv))
+    }
+    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(
+            modifier = Modifier.padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.S),
+            verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
+        ) {
+            view.actions.firstOrNull()?.let { first ->
+                PrimaryActionButton(text = actionLabel(first, nextAgv), onClick = { onAction(first) })
+            }
+            view.actions.drop(1).forEachIndexed { index, action ->
+                if (index == 0) {
+                    OutlinedButton(
+                        onClick = { onAction(action) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+                    ) {
+                        Text(actionLabel(action, nextAgv))
+                    }
+                } else {
+                    TextButton(
+                        onClick = { onAction(action) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+                    ) {
+                        Text(actionLabel(action, nextAgv))
+                    }
+                }
             }
         }
+    }
     }
 }
 
@@ -187,6 +207,7 @@ private fun FactRow(label: String, value: String) {
 
 private fun actionLabel(action: ResultAction, nextAgv: Int?): String = when (action) {
     ResultAction.NextAgv -> "다음 호기 (${nextAgv ?: "-"})"
+    ResultAction.NextBoard -> "다음 보드 고르기"
     ResultAction.Retry -> "다시 시도"
     ResultAction.Console -> "콘솔 보기"
     ResultAction.Reboot -> "재부팅"

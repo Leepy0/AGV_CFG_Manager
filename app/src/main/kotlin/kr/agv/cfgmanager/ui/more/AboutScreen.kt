@@ -69,8 +69,9 @@ fun AboutScreen(container: AppContainer, onMessage: (String) -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        PrimaryActionButton(
-            text = "로그 내보내기",
+        // 이 화면의 주요 행동은 업데이트 확인 하나다. 로그 내보내기는 보조 버튼으로 낮춘다.
+        OutlinedButton(
+            modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
             onClick = {
                 scope.launch {
                     val today = LocalDate.now()
@@ -89,7 +90,7 @@ fun AboutScreen(container: AppContainer, onMessage: (String) -> Unit) {
                     }
                 }
             },
-        )
+        ) { Text("로그 내보내기") }
 
         SectionTitle("오픈소스")
         LICENSES.forEach { line ->

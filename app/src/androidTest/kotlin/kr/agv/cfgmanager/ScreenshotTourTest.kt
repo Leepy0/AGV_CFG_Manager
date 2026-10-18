@@ -84,7 +84,7 @@ class ScreenshotTourTest {
         step("07-diagnostics") { tab("진단") }
         step("08-history") { tab("이력") }
         step("09-history-detail") {
-            compose.onAllNodesWithText("호기", substring = true)[0].performClick()
+            compose.onAllNodesWithText("192.168.10.101", substring = true)[0].performClick()
             compose.waitForIdle()
         }
         runCatching { compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() } }

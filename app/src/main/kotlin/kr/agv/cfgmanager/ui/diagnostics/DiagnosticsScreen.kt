@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -170,6 +172,8 @@ fun DiagnosticsRoute(container: AppContainer) {
             onClick = vm::refresh,
             enabled = connected && !ui.busy,
         )
+        // 공장 초기화는 되돌릴 수 없으므로 일반 버튼과 떨어뜨려 맨 아래에 둔다.
+        Spacer(modifier = Modifier.size(AgvSpacing.Xl))
         TextButton(
             onClick = { resetAsk = true },
             enabled = connected && !ui.resetBusy && snapshot != null,
@@ -204,20 +208,18 @@ fun DiagnosticsRoute(container: AppContainer) {
 /** 게이트웨이 PC 확인 줄 (F-D4): [확인] 은 HEAD 한 번, [화면 열기] 는 브라우저. */
 @Composable
 private fun GatewayLine(result: GatewayResult?, busy: Boolean, onCheck: () -> Unit, onOpen: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text("게이트웨이 PC", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                if (busy) "확인하는 중…" else gatewayText(result),
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (result is GatewayResult.Responded) AgvTheme.status.ok else MaterialTheme.colorScheme.onSurface,
-            )
+    // 문구는 한 줄 폭을 다 쓰고, 버튼은 그 아래 오른쪽에 둔다 (버튼 옆에 두면 문구가 좁아 꺾였다).
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text("게이트웨이 PC", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            if (busy) "확인하는 중…" else gatewayText(result),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (result is GatewayResult.Responded) AgvTheme.status.ok else MaterialTheme.colorScheme.onSurface,
+        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            SmallTextAction(text = "확인", onClick = onCheck, enabled = !busy)
+            SmallTextAction(text = "화면 열기", onClick = onOpen, enabled = result is GatewayResult.Responded)
         }
-        SmallTextAction(text = "확인", onClick = onCheck, enabled = !busy)
-        SmallTextAction(text = "화면 열기", onClick = onOpen, enabled = result is GatewayResult.Responded)
     }
 }
 

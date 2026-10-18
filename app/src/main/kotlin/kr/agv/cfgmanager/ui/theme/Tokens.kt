@@ -1,5 +1,6 @@
 package kr.agv.cfgmanager.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -21,11 +22,44 @@ object AgvSpacing {
     val Xxl = 32.dp
 }
 
-/** 글꼴. Phase 0 은 M3 기본 type scale. 로그 · 숫자 열용 고정폭은 화면에서 FontFamily.Monospace 를 쓴다. */
-val AgvTypography: Typography = Typography()
+/**
+ * 글꼴 (field-app-ui-design: 크기 5단계 · 굵기 2단계).
+ * 크기: 28(호기 입력) · 20(제목) · 16(강조 본문) · 14(본문 · 라벨) · 12(보조). 굵기: 400 과 700 두 가지만 쓴다.
+ * 스킬 예시는 400/600 이지만 Android 시스템 한글 글꼴에는 500 · 600 이 없어 영문만 굵게 나오고 한글은 그대로여서 섞여 보인다.
+ * 그래서 한글 · 영문 모두 제대로 나오는 700 을 쓴다. 로그 · 숫자 열용 고정폭은 화면에서 [AgvMonoText] 를 쓴다.
+ */
+val AgvTypography: Typography = Typography().let { base ->
+    fun Typography.bold(style: TextStyle, size: Int, line: Int) = style.copy(
+        fontSize = size.sp,
+        lineHeight = line.sp,
+        fontWeight = FontWeight.Bold,
+    )
+    fun regular(style: TextStyle, size: Int, line: Int) = style.copy(
+        fontSize = size.sp,
+        lineHeight = line.sp,
+        fontWeight = FontWeight.Normal,
+    )
+    base.copy(
+        titleLarge = base.bold(base.titleLarge, 20, 28),
+        titleMedium = base.bold(base.titleMedium, 16, 24),
+        titleSmall = base.bold(base.titleSmall, 14, 20),
+        bodyLarge = regular(base.bodyLarge, 16, 24),
+        bodyMedium = regular(base.bodyMedium, 14, 20),
+        bodySmall = regular(base.bodySmall, 12, 16),
+        labelLarge = base.bold(base.labelLarge, 14, 20),
+        labelMedium = base.bold(base.labelMedium, 12, 16),
+        labelSmall = base.bold(base.labelSmall, 12, 16),
+    )
+}
 
-/** 모양. Phase 0 은 M3 기본 값. */
-val AgvShapes: Shapes = Shapes()
+/** 모양 (모서리 3종: 4 · 8 · 16). 입력칸 4, 카드 · 칩 8, 시트 · 큰 면 16. 버튼은 M3 기본(완전 둥근)을 그대로 둔다. */
+val AgvShapes: Shapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(16.dp),
+)
 
 /** 크기 토큰 (dp). 터치 최소 48dp, 주요 행동은 72dp(장갑 사용 기준). */
 object AgvSizes {
