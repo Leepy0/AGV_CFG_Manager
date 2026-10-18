@@ -14,9 +14,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import kr.agv.cfgmanager.ui.components.OutlinedButton
+import kr.agv.cfgmanager.ui.components.insetGroup
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import kr.agv.cfgmanager.ui.components.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -121,9 +122,10 @@ fun AppSettingsScreen(container: AppContainer) {
 private fun ChoiceRow(label: String, selected: Boolean, onSelect: () -> Unit) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxWidth().insetGroup()
             .heightIn(min = AgvSizes.TouchMin)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+            .padding(horizontal = AgvSpacing.L),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = null)
@@ -143,7 +145,7 @@ private fun StepperRow(
     onUp: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin),
+        modifier = Modifier.fillMaxWidth().insetGroup().heightIn(min = AgvSizes.TouchMin).padding(horizontal = AgvSpacing.L),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -161,9 +163,10 @@ private fun StepperRow(
 private fun SwitchRow(label: String, note: String, checked: Boolean, onToggle: () -> Unit) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxWidth().insetGroup()
             .heightIn(min = AgvSizes.ListRowMin)
-            .clickable(role = Role.Switch, onClick = onToggle),
+            .clickable(role = Role.Switch, onClick = onToggle)
+            .padding(horizontal = AgvSpacing.L),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {

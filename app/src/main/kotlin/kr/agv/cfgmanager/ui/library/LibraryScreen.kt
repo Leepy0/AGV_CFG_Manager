@@ -1,5 +1,6 @@
 package kr.agv.cfgmanager.ui.library
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,7 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
+import kr.agv.cfgmanager.ui.components.InsetDivider
+import kr.agv.cfgmanager.ui.components.insetGroup
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -91,7 +93,10 @@ fun LibraryRoute(container: AppContainer) {
         )
         return
     }
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = AgvSpacing.L)) {
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = AgvSpacing.L).insetGroup(),
+        contentPadding = PaddingValues(horizontal = AgvSpacing.L),
+    ) {
         items(entries, key = { it.ssid }) { entry ->
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = AgvSpacing.S)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -125,9 +130,9 @@ fun LibraryRoute(container: AppContainer) {
                     )
                 }
             }
-            HorizontalDivider()
+            InsetDivider()
         }
-        item { Spacer(modifier = Modifier.size(AgvSpacing.Xl)) }
+
     }
 
     confirm?.let { ssid ->

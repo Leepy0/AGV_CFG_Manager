@@ -26,12 +26,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.HorizontalDivider
+import kr.agv.cfgmanager.ui.components.OutlinedButton
+import kr.agv.cfgmanager.ui.components.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import kr.agv.cfgmanager.ui.components.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import kr.agv.cfgmanager.ui.components.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -184,11 +184,7 @@ fun DiagnosticsRoute(container: AppContainer) {
             OutlinedButton(
                 onClick = { resetAsk = true },
                 enabled = resetEnabled,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                border = BorderStroke(
-                    AgvSizes.Stroke,
-                    if (resetEnabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outlineVariant,
-                ),
+                danger = true,
                 modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin).padding(bottom = AgvSpacing.M),
             ) {
                 Text(if (ui.resetBusy) "초기화 중…" else "공장 초기화…")
@@ -197,7 +193,7 @@ fun DiagnosticsRoute(container: AppContainer) {
             Spacer(modifier = Modifier.size(AgvSpacing.Xxl))
         }
     }
-    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainer) {
         Column(modifier = Modifier.padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.S)) {
             PrimaryActionButton(
                 text = "새로고침",
@@ -298,7 +294,7 @@ fun ConsoleSection(lines: List<ConsoleLine>, modifier: Modifier = Modifier) {
         Surface(
             modifier = Modifier.fillMaxWidth().weight(1f),
             shape = RoundedCornerShape(AgvSizes.CardRadius),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            color = MaterialTheme.colorScheme.surfaceContainer,
         ) {
             if (lines.isEmpty()) {
                 Text(

@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.HorizontalDivider
+import kr.agv.cfgmanager.ui.components.HorizontalDivider
+import kr.agv.cfgmanager.ui.components.StatusBadge
+import kr.agv.cfgmanager.ui.theme.AgvTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,11 +74,12 @@ fun SessionSummaryScreen(container: AppContainer, onMessage: (String) -> Unit) {
                 ) {
                     Text("%02d".format(entry.agv), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(0.25f))
                     Text(entry.deviceName ?: "-", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(0.5f))
-                    Text(
-                        if (entry.result == "ok") "성공" else "확인 필요",
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(0.25f),
-                    )
+                    Box(modifier = Modifier.weight(0.25f)) {
+                        StatusBadge(
+                            if (entry.result == "ok") "성공" else "확인 필요",
+                            color = if (entry.result == "ok") MaterialTheme.colorScheme.onSurfaceVariant else AgvTheme.status.warn,
+                        )
+                    }
                 }
                 HorizontalDivider()
             }

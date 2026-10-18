@@ -18,7 +18,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import kr.agv.cfgmanager.ui.components.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
@@ -165,7 +165,7 @@ fun ResultPanel(done: ApplyUi.Done, notice: String?, nextAgv: Int?, onAction: (R
         }
 
     }
-    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainer) {
         Column(
             modifier = Modifier.padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.S),
             verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
