@@ -13,6 +13,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kr.agv.cfgmanager.ui.theme.AgvQrColors
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,11 +36,13 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import kr.agv.cfgmanager.ui.components.InsetDivider
+import kr.agv.cfgmanager.ui.components.HorizontalDivider
+import kr.agv.cfgmanager.ui.components.insetGroup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import kr.agv.cfgmanager.ui.components.OutlinedButton
+import kr.agv.cfgmanager.ui.components.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -189,10 +192,13 @@ fun ProfileListRoute(container: AppContainer, onOpenProfile: (String?) -> Unit) 
                 body = "현장마다 공통 값을 프로필로 만들면 호기 번호만 바꿔 설정할 수 있습니다.",
                 primary = kr.agv.cfgmanager.ui.components.ActionSpec("새 프로필") { onOpenProfile(null) },
             )
-            else -> LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxWidth().insetGroup(),
+                contentPadding = PaddingValues(horizontal = AgvSpacing.L),
+            ) {
                 items(profiles, key = { it.id }) { profile ->
                     ProfileRow(profile, active = profile.id == doc?.lastProfileId) { onOpenProfile(profile.id) }
-                    HorizontalDivider()
+                    InsetDivider()
                 }
             }
         }

@@ -2,13 +2,13 @@ package kr.agv.cfgmanager.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
-import androidx.compose.material3.Typography
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 // 간격 · 모양 · 글꼴 토큰. 화면 코드는 여기 값만 쓴다 (sp · dp 하드코딩 금지).
 
@@ -23,45 +23,47 @@ object AgvSpacing {
 }
 
 /**
- * 글꼴 (field-app-ui-design: 크기 5단계 · 굵기 2단계).
- * 크기: 28(호기 입력) · 20(제목) · 16(강조 본문) · 14(본문 · 라벨) · 12(보조). 굵기: 400 과 700 두 가지만 쓴다.
- * 스킬 예시는 400/600 이지만 Android 시스템 한글 글꼴에는 500 · 600 이 없어 영문만 굵게 나오고 한글은 그대로여서 섞여 보인다.
- * 그래서 한글 · 영문 모두 제대로 나오는 700 을 쓴다. 로그 · 숫자 열용 고정폭은 화면에서 [AgvMonoText] 를 쓴다.
+ * 글꼴: iOS 텍스트 스타일에 맞춘다. 시스템 산세리프(FontFamily.Default)를 쓴다.
+ * Large Title 34 · Title1 28 · Title2 22 · Headline 17 · Body 17 · Callout 16 · Subhead 15 · Footnote 13 · Caption 12 / 11.
+ * 굵기는 400 과 700 두 가지만 쓴다. Android 시스템 한글 글꼴에는 500 · 600 이 없어 영문만 굵게 나오고 한글은 그대로여서 섞여 보인다.
+ * 로그 · 숫자 열용 고정폭은 화면에서 [AgvMonoText] 를 쓴다.
  */
 val AgvTypography: Typography = Typography().let { base ->
-    fun Typography.bold(style: TextStyle, size: Int, line: Int) = style.copy(
+    fun style(size: Int, line: Int, weight: FontWeight) = TextStyle(
+        fontFamily = FontFamily.Default,
         fontSize = size.sp,
         lineHeight = line.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = weight,
     )
-    fun regular(style: TextStyle, size: Int, line: Int) = style.copy(
-        fontSize = size.sp,
-        lineHeight = line.sp,
-        fontWeight = FontWeight.Normal,
-    )
+    val bold = FontWeight.Bold
+    val normal = FontWeight.Normal
     base.copy(
-        titleLarge = base.bold(base.titleLarge, 20, 28),
-        titleMedium = base.bold(base.titleMedium, 16, 24),
-        titleSmall = base.bold(base.titleSmall, 14, 20),
-        bodyLarge = regular(base.bodyLarge, 16, 24),
-        bodyMedium = regular(base.bodyMedium, 14, 20),
-        bodySmall = regular(base.bodySmall, 12, 16),
-        labelLarge = base.bold(base.labelLarge, 14, 20),
-        labelMedium = base.bold(base.labelMedium, 12, 16),
-        labelSmall = base.bold(base.labelSmall, 12, 16),
+        displaySmall = style(34, 41, bold),
+        headlineLarge = style(34, 41, bold), // Large Title
+        headlineMedium = style(28, 34, bold), // Title 1
+        headlineSmall = style(22, 28, bold), // Title 2
+        titleLarge = style(22, 28, bold),
+        titleMedium = style(17, 22, bold), // Headline
+        titleSmall = style(15, 20, bold), // Subhead
+        bodyLarge = style(17, 22, normal), // Body
+        bodyMedium = style(16, 21, normal), // Callout
+        bodySmall = style(13, 18, normal), // Footnote
+        labelLarge = style(15, 20, bold),
+        labelMedium = style(12, 16, bold), // Caption 1
+        labelSmall = style(11, 13, bold), // Caption 2
     )
 }
 
-/** 모양 (모서리 3종: 4 · 8 · 16). 입력칸 4, 카드 · 칩 8, 시트 · 큰 면 16. 버튼은 M3 기본(완전 둥근)을 그대로 둔다. */
+/** 모양: HIG 모서리. 입력칸 · 그룹 셀 · 메뉴 10, 시트 · 알림 14. 버튼 12 는 [AgvSizes.ButtonRadius] 를 components 의 버튼이 쓴다. */
 val AgvShapes: Shapes = Shapes(
-    extraSmall = RoundedCornerShape(4.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(8.dp),
-    large = RoundedCornerShape(16.dp),
-    extraLarge = RoundedCornerShape(16.dp),
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(10.dp),
+    large = RoundedCornerShape(14.dp),
+    extraLarge = RoundedCornerShape(14.dp),
 )
 
-/** 크기 토큰 (dp). 터치 최소 48dp, 주요 행동은 72dp(장갑 사용 기준). */
+/** 크기 토큰 (dp). HIG 최소 44dp 보다 크게 터치 최소 48dp, 주요 행동은 72dp(장갑 사용 기준). */
 object AgvSizes {
     val TouchMin = 48.dp
     val PrimaryAction = 72.dp
@@ -72,9 +74,14 @@ object AgvSizes {
     val LabelColumn = 96.dp
     val IconSmall = 16.dp
     val IconMedium = 20.dp
+    val IconLarge = 28.dp
     val SignalBarRadius = 2.dp
     val ChipRadius = 16.dp
-    val CardRadius = 8.dp
+    val CardRadius = 10.dp
+    val GroupRadius = 10.dp
+    val ButtonRadius = 12.dp
+    val Hairline = 0.5.dp
+    val SeparatorInset = 16.dp
     val QrSize = 240.dp
     val ConsoleHeight = 200.dp
     val Stroke = 1.dp
@@ -88,7 +95,7 @@ object AgvQrColors {
     val Foreground = Color(0xFF000000)
 }
 
-/** 로그 · 명령 · 숫자 열용 고정폭 글자. 크기는 본문 소형 단계에 맞춘다. */
+/** 로그 · 명령 · 숫자 열용 고정폭 글자. 크기는 Caption 단계에 맞춘다. */
 val AgvMonoText: TextStyle = TextStyle(
     fontFamily = FontFamily.Monospace,
     fontSize = 12.sp,
@@ -98,5 +105,5 @@ val AgvMonoText: TextStyle = TextStyle(
 /** 호기 번호 입력 글자 (28sp, 굵게). 설정 탭 폼의 큰 숫자 칸에만 쓴다. */
 val AgvStepperText: TextStyle = TextStyle(
     fontSize = 28.sp,
-    fontWeight = FontWeight.SemiBold,
+    fontWeight = FontWeight.Bold,
 )

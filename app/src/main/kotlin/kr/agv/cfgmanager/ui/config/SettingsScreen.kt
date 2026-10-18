@@ -28,11 +28,12 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import kr.agv.cfgmanager.ui.components.OutlinedButton
+import kr.agv.cfgmanager.ui.components.insetGroup
+import kr.agv.cfgmanager.ui.components.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import kr.agv.cfgmanager.ui.components.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -442,7 +443,7 @@ private fun SummaryCard(ui: SettingsUi, onEditProfile: (String?) -> Unit) {
     val pass = draft.raw(ConfigKey.PASS)
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceContainer,
         shape = MaterialTheme.shapes.medium,
     ) {
         Column(
@@ -694,8 +695,10 @@ private fun ExpandRow(title: String, summary: String, expanded: Boolean, onToggl
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .insetGroup()
             .heightIn(min = AgvSizes.ListRowMin)
-            .clickable(role = Role.Button, onClick = onToggle),
+            .clickable(role = Role.Button, onClick = onToggle)
+            .padding(horizontal = AgvSpacing.L),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -722,7 +725,7 @@ private fun BottomBar(ui: SettingsUi, vm: SettingsViewModel) {
     }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(
             modifier = Modifier.padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.S),
@@ -744,8 +747,10 @@ private fun SwitchRow(title: String, summary: String, checked: Boolean, enabled:
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .insetGroup()
             .heightIn(min = AgvSizes.ListRowMin)
-            .clickable(enabled = enabled, role = Role.Switch, onClick = onToggle),
+            .clickable(enabled = enabled, role = Role.Switch, onClick = onToggle)
+            .padding(horizontal = AgvSpacing.L),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {

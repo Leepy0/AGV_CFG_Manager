@@ -39,7 +39,7 @@ fun StatusCardView(card: StatusCard, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(AgvSizes.CardRadius),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(
             modifier = Modifier.padding(AgvSpacing.M),

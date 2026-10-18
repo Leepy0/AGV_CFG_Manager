@@ -8,7 +8,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.HorizontalDivider
+import kr.agv.cfgmanager.ui.components.InsetDivider
+import kr.agv.cfgmanager.ui.components.InsetGroup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,19 +36,18 @@ fun MoreScreen(
 ) {
     val batch by container.batch.ui.collectAsStateWithLifecycle()
     val done = batch.state.done.size
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = AgvSpacing.L)) {
+    InsetGroup(modifier = Modifier.padding(horizontal = AgvSpacing.L)) {
         MoreRow("프로필", "현장별 공통 값 · 내보내기 · QR", onOpenProfiles)
-        HorizontalDivider()
+        InsetDivider()
         MoreRow("SSID 라이브러리", "Wi-Fi 이름과 저장된 비밀번호", onOpenLibrary)
-        HorizontalDivider()
+        InsetDivider()
         MoreRow("내보내기", "프로필 · SSID 라이브러리를 파일로 공유", onOpenExport)
-        HorizontalDivider()
+        InsetDivider()
         MoreRow("연속 세팅 요약", if (done == 0) "아직 설정한 호기가 없습니다" else "이번에 설정한 호기 ${done}대", onOpenSummary)
-        HorizontalDivider()
+        InsetDivider()
         MoreRow("설정", "테마 · 스캔 시간 · 응답 유휴 시간", onOpenSettings)
-        HorizontalDivider()
+        InsetDivider()
         MoreRow("정보", "버전 · 로그 내보내기 · 오픈소스 고지", onOpenAbout)
-        HorizontalDivider()
     }
 }
 
@@ -58,7 +58,8 @@ internal fun MoreRow(title: String, summary: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = AgvSizes.ListRowMin)
-            .clickable(role = Role.Button, onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = AgvSpacing.L),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -68,7 +69,7 @@ internal fun MoreRow(title: String, summary: String, onClick: () -> Unit) {
         Icon(
             Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = MaterialTheme.colorScheme.outline,
         )
     }
 }

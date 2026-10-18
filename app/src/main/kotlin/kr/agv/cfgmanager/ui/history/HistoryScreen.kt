@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,13 +22,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
+import kr.agv.cfgmanager.ui.components.SegmentedControl
+import kr.agv.cfgmanager.ui.components.StatusBadge
+import kr.agv.cfgmanager.ui.components.InsetDivider
+import kr.agv.cfgmanager.ui.components.insetGroup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import kr.agv.cfgmanager.ui.components.OutlinedButton
+import kr.agv.cfgmanager.ui.components.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -103,15 +106,12 @@ fun HistoryRoute(container: AppContainer, onFilled: () -> Unit) {
             label = { Text("검색 (프로필 · 호기 · 장치 · IP · SSID)") },
             modifier = Modifier.fillMaxWidth(),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(AgvSpacing.S), modifier = Modifier.padding(vertical = AgvSpacing.Xxs)) {
-            HistoryPeriod.entries.forEach { period ->
-                FilterChip(
-                    selected = ui.period == period,
-                    onClick = { vm.setPeriod(period) },
-                    label = { Text(period.label) },
-                )
-            }
-        }
+        SegmentedControl(
+            options = HistoryPeriod.entries.map { it.label },
+            selectedIndex = HistoryPeriod.entries.indexOf(ui.period),
+            onSelect = { vm.setPeriod(HistoryPeriod.entries[it]) },
+            modifier = Modifier.padding(vertical = AgvSpacing.S),
+        )
 
         when {
             !ui.loaded -> StatePanel(title = "불러오는 중", body = "이력을 읽고 있습니다.")
@@ -133,10 +133,13 @@ fun HistoryRoute(container: AppContainer, onFilled: () -> Unit) {
                     vm.setPeriod(HistoryPeriod.All)
                 },
             )
-            else -> LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxWidth().insetGroup(),
+                contentPadding = PaddingValues(horizontal = AgvSpacing.L),
+            ) {
                 items(visible) { entry ->
                     HistoryRow(entry) { vm.select(entry) }
-                    HorizontalDivider()
+                    InsetDivider()
                 }
             }
         }
@@ -189,13 +192,11 @@ private fun HistoryRow(entry: HistoryEntry, onClick: () -> Unit) {
         Icon(
             if (success) Icons.Filled.Check else Icons.Filled.Warning,
             contentDescription = null,
-            tint = if (success) MaterialTheme.colorScheme.onSurface else AgvTheme.status.alarm,
-            modifier = Modifier.size(16.dp),
+            tint = if (success) MaterialTheme.colorScheme.onSurfaceVariant else AgvTheme.status.alarm,
+            modifier = Modifier.size(AgvSizes.IconSmall),
         )
-        Spacer(modifier = Modifier.size(AgvSpacing.Xxs))
-        Text(
+        StatusBadge(
             HistoryView.resultLabel(entry.result),
-            style = MaterialTheme.typography.labelMedium,
             color = if (success) MaterialTheme.colorScheme.onSurfaceVariant else AgvTheme.status.alarm,
         )
     }

@@ -1,5 +1,6 @@
 package kr.agv.cfgmanager.ui.components
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import kr.agv.cfgmanager.ui.theme.AgvSizes
 
 /**
@@ -36,8 +38,8 @@ fun ConfirmDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title, style = MaterialTheme.typography.titleMedium) },
-        text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+        title = { Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
+        text = { Text(text, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
         confirmButton = {
             TextButton(
                 onClick = onConfirm,

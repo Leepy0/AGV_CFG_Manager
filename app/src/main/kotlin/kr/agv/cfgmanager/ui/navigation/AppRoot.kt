@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -16,7 +16,17 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.graphics.Color
+import kr.agv.cfgmanager.ui.components.HorizontalDivider
+import kr.agv.cfgmanager.ui.theme.AgvSizes
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
@@ -138,6 +148,30 @@ fun AppRoot(container: AppContainer) {
         }
     }
 
+    val accent = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.onSurfaceVariant
+    val itemColors = NavigationSuiteDefaults.itemColors(
+        navigationBarItemColors = NavigationBarItemDefaults.colors(
+            selectedIconColor = accent,
+            selectedTextColor = accent,
+            unselectedIconColor = secondary,
+            unselectedTextColor = secondary,
+            indicatorColor = Color.Transparent,
+        ),
+        navigationRailItemColors = NavigationRailItemDefaults.colors(
+            selectedIconColor = accent,
+            selectedTextColor = accent,
+            unselectedIconColor = secondary,
+            unselectedTextColor = secondary,
+            indicatorColor = Color.Transparent,
+        ),
+    )
+    val layoutType = if (isTab) {
+        NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
+    } else {
+        NavigationSuiteType.None
+    }
+
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             TopLevelDestination.entries.forEach { destination ->
@@ -146,29 +180,55 @@ fun AppRoot(container: AppContainer) {
                     onClick = { openTab(destination) },
                     icon = { Icon(destination.icon, contentDescription = null) },
                     label = { Text(destination.label) },
+                    colors = itemColors,
                 )
             }
         },
-        layoutType = if (isTab) {
-            NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
-        } else {
-            NavigationSuiteType.None
-        },
+        layoutType = layoutType,
+        // 평평한 탭 바: 셀 색 바탕. 위쪽 머리카락 선은 아래 Scaffold 의 bottomBar 가 그린다.
+        navigationSuiteColors = NavigationSuiteDefaults.colors(
+            navigationBarContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            navigationRailContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
     ) {
         Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            bottomBar = {
+                if (isTab && layoutType == NavigationSuiteType.NavigationBar) HorizontalDivider()
+            },
             topBar = {
                 if (isTab) {
-                    // 탭 화면은 앱 이름 대신 연결 칩을 앱 바에 둔다. 상단이 한 줄로 줄어 폼 공간이 늘어난다.
-                    TopAppBar(title = { ConnectionChip(chip = chip, modifier = Modifier.fillMaxWidth()) })
+                    // 탭 화면은 Large Title 아래에 연결 칩을 둔다.
+                    Column(modifier = Modifier.statusBarsPadding()) {
+                        Text(
+                            TopLevelDestination.entries.firstOrNull { it.route == currentRoute }?.label.orEmpty(),
+                            style = MaterialTheme.typography.headlineLarge,
+                            modifier = Modifier.padding(horizontal = AgvSpacing.L),
+                        )
+                        ConnectionChip(
+                            chip = chip,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.S),
+                        )
+                    }
                 } else {
                     Column {
-                        TopAppBar(
-                            title = { Text(subScreenTitle(currentRoute)) },
+                        CenterAlignedTopAppBar(
+                            title = { Text(subScreenTitle(currentRoute), style = MaterialTheme.typography.titleMedium) },
                             navigationIcon = {
                                 IconButton(onClick = { navController.popBackStack() }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                        contentDescription = "뒤로",
+                                        tint = accent,
+                                        modifier = Modifier.size(AgvSizes.IconLarge),
+                                    )
                                 }
                             },
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.background,
+                            ),
                         )
                         ConnectionChip(
                             chip = chip,

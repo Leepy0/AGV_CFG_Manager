@@ -17,10 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -141,7 +139,7 @@ fun ConnectionChip(chip: ChipUi, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(AgvSizes.ChipRadius),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = if (chip.tone == ChipTone.Neutral) MaterialTheme.colorScheme.surfaceContainer else toneColor.copy(alpha = 0.12f),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = AgvSpacing.M, vertical = AgvSpacing.S),
@@ -188,8 +186,8 @@ fun SmallTextAction(text: String, onClick: () -> Unit, enabled: Boolean = true) 
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier,
+        modifier = modifier.padding(start = AgvSpacing.M),
     )
 }
