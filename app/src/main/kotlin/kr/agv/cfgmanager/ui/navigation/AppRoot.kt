@@ -1,5 +1,7 @@
 package kr.agv.cfgmanager.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -26,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,7 +36,6 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kr.agv.cfgmanager.AppContainer
-import kr.agv.cfgmanager.R
 import kr.agv.cfgmanager.core.bridge.ConfigKey
 import kr.agv.cfgmanager.apply.ApplyUi
 import kr.agv.cfgmanager.net.GatewayProbe
@@ -52,7 +52,7 @@ import kr.agv.cfgmanager.ui.more.AboutScreen
 import kr.agv.cfgmanager.ui.more.AppSettingsScreen
 import kr.agv.cfgmanager.ui.more.MoreScreen
 import kr.agv.cfgmanager.ui.more.SessionSummaryScreen
-import kr.agv.cfgmanager.ui.more.TripPrepScreen
+import kr.agv.cfgmanager.ui.more.ExportScreen
 import kr.agv.cfgmanager.ui.profiles.ProfileEditRoute
 import kr.agv.cfgmanager.ui.profiles.ProfileListRoute
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
@@ -133,7 +133,7 @@ fun AppRoot(container: AppContainer) {
                 item(
                     selected = currentRoute == destination.route,
                     onClick = { openTab(destination) },
-                    icon = { Icon(destination.icon, contentDescription = destination.label) },
+                    icon = { Icon(destination.icon, contentDescription = null) },
                     label = { Text(destination.label) },
                 )
             }
@@ -146,23 +146,26 @@ fun AppRoot(container: AppContainer) {
     ) {
         Scaffold(
             topBar = {
-                Column {
-                    TopAppBar(
-                        title = { Text(if (isTab) stringResource(R.string.app_name) else subScreenTitle(currentRoute)) },
-                        navigationIcon = {
-                            if (!isTab) {
+                if (isTab) {
+                    // 탭 화면은 앱 이름 대신 연결 칩을 앱 바에 둔다. 상단이 한 줄로 줄어 폼 공간이 늘어난다.
+                    TopAppBar(title = { ConnectionChip(chip = chip, modifier = Modifier.fillMaxWidth()) })
+                } else {
+                    Column {
+                        TopAppBar(
+                            title = { Text(subScreenTitle(currentRoute)) },
+                            navigationIcon = {
                                 IconButton(onClick = { navController.popBackStack() }) {
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
                                 }
-                            }
-                        },
-                    )
-                    ConnectionChip(
-                        chip = chip,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.S),
-                    )
+                            },
+                        )
+                        ConnectionChip(
+                            chip = chip,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.S),
+                        )
+                    }
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },
@@ -171,6 +174,11 @@ fun AppRoot(container: AppContainer) {
                 navController = navController,
                 startDestination = TopLevelDestination.Work.route,
                 modifier = Modifier.padding(innerPadding),
+                // 화면 전환에 페이드 · 슬라이드 효과를 쓰지 않는다 (즉시 전환).
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None },
             ) {
                 composable(TopLevelDestination.Work.route) {
                     WorkRoute(
@@ -190,7 +198,7 @@ fun AppRoot(container: AppContainer) {
                         container = container,
                         onOpenProfiles = { push(ROUTE_PROFILES) },
                         onOpenLibrary = { push(ROUTE_LIBRARY) },
-                        onOpenTrip = { push(ROUTE_TRIP) },
+                        onOpenExport = { push(ROUTE_EXPORT) },
                         onOpenSummary = { push(ROUTE_SUMMARY) },
                         onOpenSettings = { push(ROUTE_APP_SETTINGS) },
                         onOpenAbout = { push(ROUTE_ABOUT) },
@@ -211,8 +219,8 @@ fun AppRoot(container: AppContainer) {
                 composable(ROUTE_LIBRARY) {
                     LibraryRoute(container = container)
                 }
-                composable(ROUTE_TRIP) {
-                    TripPrepScreen(container = container)
+                composable(ROUTE_EXPORT) {
+                    ExportScreen(container = container)
                 }
                 composable(ROUTE_SUMMARY) {
                     SessionSummaryScreen(container = container, onMessage = notify)
@@ -232,7 +240,7 @@ private const val STATUS_REFRESH_MS = 10_000L
 private const val GATEWAY_CHECK_MS = 15_000L
 private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_LIBRARY = "library"
-private const val ROUTE_TRIP = "trip"
+private const val ROUTE_EXPORT = "export"
 private const val ROUTE_SUMMARY = "summary"
 private const val ROUTE_APP_SETTINGS = "app_settings"
 private const val ROUTE_ABOUT = "about"
@@ -240,7 +248,7 @@ private const val ROUTE_ABOUT = "about"
 private fun subScreenTitle(route: String?): String = when {
     route == ROUTE_PROFILES -> "프로필"
     route == ROUTE_LIBRARY -> "SSID 라이브러리"
-    route == ROUTE_TRIP -> "출장 준비"
+    route == ROUTE_EXPORT -> "내보내기"
     route == ROUTE_SUMMARY -> "연속 세팅 요약"
     route == ROUTE_APP_SETTINGS -> "앱 설정"
     route == ROUTE_ABOUT -> "정보"

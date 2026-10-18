@@ -44,7 +44,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 ```
 ./gradlew :core:test :app:testDebugUnitTest            # JVM 단위 테스트 (하드웨어 없이)
 ./gradlew :app:assembleDebug                           # 디버그 APK → app/build/outputs/apk/debug/
-./gradlew :app:assembleRelease -Pchannel=release -PversionName=1.0.0 -PversionCode=10000
+./gradlew :app:assembleRelease -Pchannel=release -PversionName=1.1.0 -PversionCode=10100
 ```
 
 - `-Pchannel` 은 앱 안의 `BuildConfig.CHANNEL`(기본 `local`), `-PversionName` · `-PversionCode` 는 버전 값, `-PsourceRevision` 은 정보 화면의 커밋 표시입니다.

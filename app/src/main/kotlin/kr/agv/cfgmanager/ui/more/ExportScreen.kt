@@ -14,7 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,26 +39,14 @@ import kr.agv.cfgmanager.ui.theme.AgvSpacing
 import kr.agv.cfgmanager.ui.theme.AgvTheme
 import java.time.LocalDate
 
-/** 출장 체크리스트 (앱 밖 준비 포함). 체크 상태는 화면에만 남는다. */
-val TRIP_CHECKLIST: List<String> = listOf(
-    "프로필과 SSID 라이브러리를 파일 또는 QR 로 옮겼다",
-    "각 프로필의 BLE 비밀번호를 확인했다 (기본 agvsetup, 바꿨다면 그 값)",
-    "현장 Wi-Fi 의 SSID 와 비밀번호를 알고 있다",
-    "게이트웨이 PC 의 주소와 같은 망에 붙을 수 있다",
-    "휴대폰의 블루투스 · 위치 권한을 허용했다",
-    "메인보드 굽기가 필요할 수 있어 PC 와 USB 케이블을 챙겼다 (앱 범위 밖)",
-    "브리지 펌웨어 파일은 PC 에 받아 두었다 (앱 범위 밖)",
-)
-
-/** 출장 준비 (F-G4): 프로필 · 라이브러리 내보내기 한 번에 + 체크리스트. */
+/** 내보내기 (F-G4): 프로필 · SSID 라이브러리를 파일 하나로 공유한다. */
 @Composable
-fun TripPrepScreen(container: AppContainer) {
+fun ExportScreen(container: AppContainer) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val vm: ProfilesViewModel = viewModel(factory = viewModelFactory {
         initializer { ProfilesViewModel(container) }
     })
-    val checks = remember { mutableStateListOf<Boolean>().apply { repeat(TRIP_CHECKLIST.size) { add(false) } } }
     var includeLibrary by remember { mutableStateOf(true) }
     var includePasswords by remember { mutableStateOf(false) }
     var warnPasswords by remember { mutableStateOf(false) }
@@ -72,25 +59,6 @@ fun TripPrepScreen(container: AppContainer) {
             .padding(horizontal = AgvSpacing.L),
         verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
     ) {
-        SectionTitle("출장 전 체크리스트")
-        TRIP_CHECKLIST.forEachIndexed { index, item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = AgvSizes.TouchMin)
-                    .clickable(role = Role.Checkbox) { checks[index] = !checks[index] },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Checkbox(checked = checks[index], onCheckedChange = null)
-                Text(item, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = AgvSpacing.S))
-            }
-        }
-        Text(
-            "체크 ${checks.count { it }} / ${TRIP_CHECKLIST.size}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
         SectionTitle("한 번에 내보내기")
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = AgvSizes.TouchMin).clickable(role = Role.Checkbox) {
@@ -128,7 +96,7 @@ fun TripPrepScreen(container: AppContainer) {
                         if (uri == null) {
                             message = "파일을 만들지 못했습니다. 저장 공간을 확인하세요."
                         } else {
-                            context.startActivity(ShareFiles.chooser(uri, "application/json", "출장 준비 파일 공유"))
+                            context.startActivity(ShareFiles.chooser(uri, "application/json", "내보내기 파일 공유"))
                         }
                     }
                 }

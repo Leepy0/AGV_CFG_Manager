@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * 하단 탭 4개. 현장 작업 순서에 맞춘다: 세팅(프로필 → 보드 → 호기 → 적용 → 다음) / 진단 / 이력 / 더보기.
- * 프로필 · 라이브러리 · 출장 준비 · 앱 설정 · 정보는 더보기 안에 있다.
+ * 프로필 · 라이브러리 · 내보내기 · 앱 설정 · 정보는 더보기 안에 있다.
  */
 enum class TopLevelDestination(
     val route: String,

@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import kr.agv.cfgmanager.session.ChipTone
 import kr.agv.cfgmanager.session.ChipUi
 import kr.agv.cfgmanager.ble.SignalGrade
@@ -120,7 +119,7 @@ fun SignalBars(rssi: Int, modifier: Modifier = Modifier, dim: Boolean = false) {
                 modifier = Modifier
                     .width(AgvSizes.SignalBarWidth)
                     .height(height)
-                    .background(if (index < grade.bars) onColor else offColor, RoundedCornerShape(2.dp)),
+                    .background(if (index < grade.bars) onColor else offColor, RoundedCornerShape(AgvSizes.SignalBarRadius)),
             )
         }
     }
@@ -148,7 +147,7 @@ fun ConnectionChip(chip: ChipUi, modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = AgvSpacing.M, vertical = AgvSpacing.S),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = toneColor, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = toneColor, modifier = Modifier.size(AgvSizes.IconMedium))
             Spacer(modifier = Modifier.width(AgvSpacing.S))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

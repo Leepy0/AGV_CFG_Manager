@@ -377,6 +377,13 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /** 적용 직전 값으로 되돌린다 (결과 카드의 [이전 값으로 복원]). 저장한 값이 없으면 이유를 카드에 남긴다. */
+    fun restore() {
+        viewModelScope.launch {
+            if (!apply.restore()) setNotice("복원할 이전 값이 없습니다.")
+        }
+    }
+
     /** 재부팅 요청 (결과 카드의 [재부팅]). 거부되면 이유를 카드에 남긴다. */
     fun reboot() {
         viewModelScope.launch {

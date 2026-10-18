@@ -20,6 +20,7 @@ import kr.agv.cfgmanager.batch.BatchController
 import kr.agv.cfgmanager.data.KeystoreCipher
 import kr.agv.cfgmanager.data.NetworkStore
 import kr.agv.cfgmanager.data.ProfileStore
+import kr.agv.cfgmanager.data.RestorePointStore
 import kr.agv.cfgmanager.prefill.FormPrefill
 import kr.agv.cfgmanager.ble.BleBoardSource
 import kr.agv.cfgmanager.ble.BlePreflightProbe
@@ -111,11 +112,16 @@ class AppContainer(context: Context) {
     /** SSID 라이브러리 (`filesDir/networks.json`, 비밀번호는 Keystore 로 암호화). */
     val networks = NetworkStore(File(appContext.filesDir, NETWORK_FILE), KeystoreCipher())
 
+    /** 적용 직전 장치 값 (`filesDir/restore_points.json`, 비밀번호 포함 평문. 되돌리기용). */
+    val restorePoints = RestorePointStore(File(appContext.filesDir, RESTORE_FILE))
+
     /**
      * 적용 실행기. 진행 상태와 결과를 쥐고 있어 회전 뒤에도 진행 패널이 복원된다.
      * 성공하면 마지막 프로필 사용 시각을 갱신하고, 저장을 허락한 SSID · 비밀번호를 라이브러리에 남긴다.
      */
     val apply = ApplyRunner(
+        restorePoints = restorePoints,
+        knownPassword = { ssid -> networks.password(ssid) },
         session = session,
         history = history,
         scope = appScope,
@@ -164,6 +170,7 @@ class AppContainer(context: Context) {
         const val HISTORY_FILE = "history.jsonl"
         const val PROFILE_FILE = "profiles.json"
         const val NETWORK_FILE = "networks.json"
+        const val RESTORE_FILE = "restore_points.json"
         const val LOG_DIR = "logs"
         const val UPDATE_DIR = "updates"
         const val AUTO_CHECK_DELAY_MS = 3_000L

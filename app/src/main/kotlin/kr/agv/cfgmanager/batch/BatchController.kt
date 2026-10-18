@@ -65,7 +65,7 @@ class BatchController(apply: StateFlow<ApplyUi>, scope: CoroutineScope) {
      * 준비 상태에서 끝난 결과가 오면 시작 사건을 먼저 넣는다.
      */
     private fun observe(previous: ApplyUi, now: ApplyUi) {
-        if (now !is ApplyUi.Done || previous is ApplyUi.Done) return
+        if (now !is ApplyUi.Done || previous is ApplyUi.Done || now.restored) return
         if (uiFlow.value.state is BatchState.Ready) send(BatchEvent.ApplyStarted)
         if (uiFlow.value.state !is BatchState.Applying) return
         val result = now.result

@@ -22,13 +22,13 @@ import kr.agv.cfgmanager.AppContainer
 import kr.agv.cfgmanager.ui.theme.AgvSizes
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
 
-/** ⚙ 보조 메뉴: 프로필 · SSID 라이브러리 · 출장 준비 · 연속 세팅 요약 · 설정 · 정보. */
+/** ⚙ 보조 메뉴: 프로필 · SSID 라이브러리 · 내보내기 · 연속 세팅 요약 · 설정 · 정보. */
 @Composable
 fun MoreScreen(
     container: AppContainer,
     onOpenProfiles: () -> Unit,
     onOpenLibrary: () -> Unit,
-    onOpenTrip: () -> Unit,
+    onOpenExport: () -> Unit,
     onOpenSummary: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -40,7 +40,7 @@ fun MoreScreen(
         HorizontalDivider()
         MoreRow("SSID 라이브러리", "Wi-Fi 이름과 저장된 비밀번호", onOpenLibrary)
         HorizontalDivider()
-        MoreRow("출장 준비", "프로필 · 라이브러리 한 번에 내보내기와 체크리스트", onOpenTrip)
+        MoreRow("내보내기", "프로필 · SSID 라이브러리를 파일로 공유", onOpenExport)
         HorizontalDivider()
         MoreRow("연속 세팅 요약", if (done == 0) "아직 설정한 호기가 없습니다" else "이번에 설정한 호기 ${done}대", onOpenSummary)
         HorizontalDivider()

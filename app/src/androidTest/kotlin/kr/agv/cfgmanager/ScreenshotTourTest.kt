@@ -108,7 +108,7 @@ class ScreenshotTourTest {
             back()
         }
         sub("13-library", "SSID 라이브러리")
-        sub("14-trip", "출장 준비")
+        sub("14-export", "내보내기")
         sub("15-session-summary", "연속 세팅 요약")
         sub("16-app-settings", "설정")
         sub("17-about", "정보")

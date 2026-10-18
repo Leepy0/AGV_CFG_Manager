@@ -28,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import kr.agv.cfgmanager.apply.ApplyMessages
 import kr.agv.cfgmanager.apply.ApplyProgress
 import kr.agv.cfgmanager.apply.ApplyUi
@@ -75,10 +74,14 @@ fun ApplyProgressPanel(running: ApplyUi.Running, onCancel: () -> Unit) {
                 .fillMaxWidth()
                 .heightIn(min = AgvSizes.TouchMin),
         ) {
-            Text(if (running.cancellable) "취소" else "저장 이후에는 취소할 수 없습니다")
+            Text("취소")
         }
         Text(
-            "취소는 저장 전까지만 됩니다. 적용이 끝날 때까지 화면을 떠나지 마세요.",
+            if (running.cancellable) {
+                "취소는 저장 전까지만 됩니다. 적용이 끝날 때까지 화면을 떠나지 마세요."
+            } else {
+                "저장 이후에는 취소할 수 없습니다. 적용이 끝날 때까지 화면을 떠나지 마세요."
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -93,8 +96,8 @@ private fun ProgressLine(row: ProgressRow, state: RowState, detail: String?) {
     ) {
         when (state) {
             RowState.Done -> PanelIcon(Icons.Filled.Check, AgvTheme.status.ok)
-            RowState.Current -> CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-            RowState.Pending -> Spacer(modifier = Modifier.size(16.dp))
+            RowState.Current -> CircularProgressIndicator(modifier = Modifier.size(AgvSizes.IconSmall), strokeWidth = AgvSizes.Stroke * 2)
+            RowState.Pending -> Spacer(modifier = Modifier.size(AgvSizes.IconSmall))
         }
         Spacer(modifier = Modifier.width(AgvSpacing.S))
         Text(
@@ -115,7 +118,7 @@ private fun ProgressLine(row: ProgressRow, state: RowState, detail: String?) {
 /** 결과 카드. 성공은 중립색 + 체크, 실패는 알람색 + 경고 아이콘. 다음 행동 버튼은 문구와 함께 둔다. */
 @Composable
 fun ResultPanel(done: ApplyUi.Done, notice: String?, nextAgv: Int?, onAction: (ResultAction) -> Unit) {
-    val view = ApplyMessages.view(done.result, nextAgv)
+    val view = ApplyMessages.view(done.result, nextAgv, done.restorable)
     val device = done.result.after
     // 위: 결과 내용(스크롤). 아래: 다음 행동 버튼(하단 고정). 주요 행동은 화면 하단에 하나, 나머지는 보조 · 텍스트로 낮춘다.
     Column(modifier = Modifier.fillMaxSize()) {
@@ -213,11 +216,12 @@ private fun actionLabel(action: ResultAction, nextAgv: Int?): String = when (act
     ResultAction.Reboot -> "재부팅"
     ResultAction.Boards -> "다른 보드 고르기"
     ResultAction.CloseSetup -> "설정 모드 닫기"
+    ResultAction.Restore -> "이전 값으로 복원"
     ResultAction.Dismiss -> "확인"
 }
 
 @Composable
 private fun PanelIcon(icon: ImageVector, tint: Color) {
-    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(AgvSizes.IconMedium))
 }
 

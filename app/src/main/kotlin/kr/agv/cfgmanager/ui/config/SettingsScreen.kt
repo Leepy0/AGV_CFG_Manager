@@ -46,12 +46,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -64,6 +66,7 @@ import kr.agv.cfgmanager.core.bridge.BridgeConfig
 import kr.agv.cfgmanager.core.bridge.CfgState
 import kr.agv.cfgmanager.core.bridge.ConfigKey
 
+import kr.agv.cfgmanager.ui.components.ConfirmDialog
 import kr.agv.cfgmanager.ui.components.PrimaryActionButton
 import kr.agv.cfgmanager.ui.components.SectionTitle
 import kr.agv.cfgmanager.ui.theme.AgvSizes
@@ -87,6 +90,7 @@ fun SettingsRoute(
     })
     val ui by vm.ui.collectAsStateWithLifecycle()
     val running = ui.apply is ApplyUi.Running
+    var confirmRestore by remember { mutableStateOf(false) }
 
     // 적용 중에는 뒤로 가기로 빠져나가지 않는다 (취소 버튼으로만).
     BackHandler(enabled = running) { }
@@ -113,12 +117,32 @@ fun SettingsRoute(
                                 onOpenBoards()
                             }
                             ResultAction.CloseSetup -> vm.closeSetupMode()
+                            ResultAction.Restore -> confirmRestore = true
                             ResultAction.Dismiss -> vm.dismissResult()
                         }
                     },
                 )
                 ApplyUi.Idle -> FormBody(ui, vm, onOpenBoards, onEditProfile)
             }
+        }
+        val done = ui.apply as? ApplyUi.Done
+        if (confirmRestore && done != null) {
+            // 되돌리면 지금 값 위에 이전 값을 다시 저장하고 재부팅한다. 이름과 영향을 적고 기본 선택은 취소다.
+            ConfirmDialog(
+                title = "${done.agv}호기를 이전 값으로 복원할까요?",
+                text = "적용 직전 값을 다시 저장하고 재부팅합니다. " + if (done.restorePasswordKnown) {
+                    "Wi-Fi 비밀번호도 함께 되돌립니다."
+                } else {
+                    "이전 Wi-Fi 비밀번호는 알 수 없어 보내지 않습니다. 비밀번호를 바꿨다면 새 비밀번호가 남습니다."
+                },
+                confirmLabel = "${done.agv}호기 복원",
+                cancelFocused = true,
+                onConfirm = {
+                    confirmRestore = false
+                    vm.restore()
+                },
+                onDismiss = { confirmRestore = false },
+            )
         }
         if (ui.apply is ApplyUi.Idle) {
             BottomBar(ui, vm)
@@ -341,28 +365,41 @@ private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolea
     val agvText = draft.raw(ConfigKey.AGV)
     val message = ui.check?.messageFor(ConfigKey.AGV)
     Column(verticalArrangement = Arrangement.spacedBy(AgvSpacing.Xxs)) {
+        // 라벨을 위로 올려 입력칸이 남는 폭을 쓴다. 좁은 폰이나 큰 글꼴에서도 −/+ 가 넘치지 않는다.
+        Text("호기 번호", style = MaterialTheme.typography.labelLarge)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgvSpacing.S)) {
-            Text("호기 번호", style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(AgvSizes.LabelColumn))
             OutlinedButton(
                 onClick = { vm.stepAgv(-1) },
                 enabled = editable,
                 modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
-            ) { Text("−", style = MaterialTheme.typography.titleLarge) }
+            ) {
+                Text(
+                    "−",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.semantics { contentDescription = "호기 번호 1 감소" },
+                )
+            }
             OutlinedTextField(
                 value = agvText,
                 onValueChange = { vm.setValue(ConfigKey.AGV, it) },
                 enabled = editable,
                 singleLine = true,
                 textStyle = AgvStepperText.copy(textAlign = TextAlign.Center),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                 isError = message?.isError == true,
-                modifier = Modifier.width(96.dp),
+                modifier = Modifier.weight(1f),
             )
             OutlinedButton(
                 onClick = { vm.stepAgv(1) },
                 enabled = editable,
                 modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
-            ) { Text("+", style = MaterialTheme.typography.titleLarge) }
+            ) {
+                Text(
+                    "+",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.semantics { contentDescription = "호기 번호 1 증가" },
+                )
+            }
         }
         // [장치값으로] 는 숫자 줄에 두면 좁아서 글자가 세로로 쪼개진다. 장치 값 줄의 오른쪽에 둔다.
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -447,9 +484,9 @@ private fun SummaryLine(label: String, value: String, changed: Boolean) {
         Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(AgvSizes.LabelColumn))
         Text(value, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         if (changed) {
-            StatusIcon(Icons.Filled.Edit, AgvTheme.status.warn)
+            StatusIcon(Icons.Filled.Edit, MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.width(AgvSpacing.Xxs))
-            Text("변경", style = MaterialTheme.typography.labelMedium, color = AgvTheme.status.warn)
+            Text("변경", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -585,7 +622,7 @@ private fun ConfigInput(
             onValueChange = { vm.setValue(key, it) },
             enabled = enabled,
             singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboard, imeAction = ImeAction.Next),
             isError = ui.check?.messageFor(key)?.isError == true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -610,17 +647,20 @@ private fun FieldBlock(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             if (changed) {
-                StatusIcon(Icons.Filled.Edit, AgvTheme.status.warn)
+                StatusIcon(Icons.Filled.Edit, MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(AgvSpacing.Xxs))
-                Text("변경", style = MaterialTheme.typography.labelMedium, color = AgvTheme.status.warn)
+                Text("변경", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
         }
         input()
-        Text(
-            "장치: ${deviceOverride ?: deviceText(ui, key)}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        // 장치 값은 바뀐 항목에만 보인다. 같은 값을 줄마다 되풀이하면 폼이 길어진다.
+        if (changed) {
+            Text(
+                "장치: ${deviceOverride ?: deviceText(ui, key)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         FieldMessageLine(message)
     }
 }
@@ -722,7 +762,7 @@ private fun SwitchRow(title: String, summary: String, checked: Boolean, enabled:
 
 @Composable
 private fun StatusIcon(icon: ImageVector, tint: Color) {
-    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(AgvSizes.IconSmall))
 }
 
 /** 장치 현재값 문구. 장치가 DNS 를 지원하지 않으면 지원 안 함. 비밀번호는 길이만. */
@@ -739,4 +779,5 @@ private fun textOptions(keyboard: KeyboardType): KeyboardOptions = KeyboardOptio
     keyboardType = keyboard,
     capitalization = KeyboardCapitalization.None,
     autoCorrectEnabled = false,
+    imeAction = ImeAction.Next,
 )

@@ -70,6 +70,9 @@ object AgvSizes {
     val SignalBarGap = 3.dp
     val SignalBarHeights = listOf(8.dp, 12.dp, 16.dp)
     val LabelColumn = 96.dp
+    val IconSmall = 16.dp
+    val IconMedium = 20.dp
+    val SignalBarRadius = 2.dp
     val ChipRadius = 16.dp
     val CardRadius = 8.dp
     val QrSize = 240.dp

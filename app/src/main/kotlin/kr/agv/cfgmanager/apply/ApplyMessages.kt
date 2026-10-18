@@ -7,8 +7,8 @@ import kr.agv.cfgmanager.core.workflows.ApplyResult
 import kr.agv.cfgmanager.core.workflows.ApplyStep
 
 /** 결과 카드의 다음 행동. 버튼 문구와 동작은 화면에서 정한다. */
-/** [NextAgv]: 연속 모드에서 다음 호기로 (보드 탭으로 돌아가며 번호를 넘긴다). */
-enum class ResultAction { NextAgv, NextBoard, Retry, Console, Reboot, Boards, CloseSetup, Dismiss }
+/** [NextAgv]: 연속 모드에서 다음 호기로 (보드 탭으로 돌아가며 번호를 넘긴다). [Restore]: 적용 직전 값으로 되돌린다. */
+enum class ResultAction { NextAgv, NextBoard, Retry, Console, Reboot, Boards, CloseSetup, Restore, Dismiss }
 
 /** 결과 카드 한 장의 문구. 무엇 · 왜 · 다음 행동 (docs/DEVELOPMENT_PLAN.md 9). */
 data class ResultView(
@@ -34,7 +34,15 @@ object ApplyMessages {
     }
 
     /** [nextAgv] 가 있으면 연속 모드 중이다. 성공 카드의 기본 버튼은 [ResultAction.NextAgv] 가 된다. */
-    fun view(result: ApplyResult, nextAgv: Int? = null): ResultView = when (val outcome = result.outcome) {
+    fun view(result: ApplyResult, nextAgv: Int? = null, restorable: Boolean = false): ResultView {
+        val base = baseView(result, nextAgv)
+        val applied = result.outcome == ApplyOutcome.Applied || result.outcome == ApplyOutcome.SavedOnly
+        if (!restorable || !applied) return base
+        // 되돌리기는 확인 버튼 바로 앞의 맨 아래 보조 행동이다 (주요 행동과 떨어뜨린다).
+        return base.copy(actions = base.actions.filter { it != ResultAction.Dismiss } + ResultAction.Restore + ResultAction.Dismiss)
+    }
+
+    private fun baseView(result: ApplyResult, nextAgv: Int?): ResultView = when (val outcome = result.outcome) {
         ApplyOutcome.Applied -> ResultView(
             title = "적용 완료",
             step = null,
