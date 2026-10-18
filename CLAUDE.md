@@ -38,5 +38,5 @@ ESP32-S3 AGV Wi-Fi 브리지의 호기 설정 · 확인 · 진단용 **Android �
 ```
 ./gradlew :core:test                 # JVM 단위 테스트
 ./gradlew :app:assembleDebug         # 디버그 APK (개발자 옵션에서 가짜 브리지 켜기)
-./gradlew :app:assembleRelease -PversionName=0.1.0 -PversionCode=100 -Pchannel=release
+./gradlew :app:assembleRelease -PversionName=1.0.0 -PversionCode=10000 -Pchannel=release
 ```
