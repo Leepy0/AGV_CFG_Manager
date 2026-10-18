@@ -21,7 +21,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -75,11 +78,13 @@ fun DiagnosticsRoute(container: AppContainer) {
     var resetAsk by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
 
+    // 위: 상태 · 콘솔 · 입력(스크롤). 아래: 주요 행동 [새로고침] 하나(하단 고정). 높이를 비율로 나누면 내용이 잘려서 스크롤로 바꿨다.
+    Column(modifier = Modifier.fillMaxSize().imePadding()) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = AgvSpacing.L)
-            .imePadding(),
+            .weight(1f)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = AgvSpacing.L),
         verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
     ) {
         Row(
@@ -95,9 +100,9 @@ fun DiagnosticsRoute(container: AppContainer) {
                 modifier = Modifier.padding(start = AgvSpacing.S),
             )
         }
-        Box(modifier = Modifier.fillMaxWidth().weight(0.4f)) {
+        Box(modifier = Modifier.fillMaxWidth()) {
             if (connected && snapshot != null) {
-                StatusCardView(card = card, modifier = Modifier.fillMaxSize())
+                StatusCardView(card = card)
             } else {
                 StatePanel(
                     title = if (sessionState.link == LinkStatus.Connecting || sessionState.link == LinkStatus.Reconnecting) {
@@ -132,7 +137,7 @@ fun DiagnosticsRoute(container: AppContainer) {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        ConsoleSection(lines = lines, modifier = Modifier.fillMaxWidth().weight(0.5f))
+        ConsoleSection(lines = lines, modifier = Modifier.fillMaxWidth().height(AgvSizes.ConsoleHeight))
 
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -167,13 +172,9 @@ fun DiagnosticsRoute(container: AppContainer) {
         ui.inputError?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = AgvTheme.status.alarm)
         }
-        PrimaryActionButton(
-            text = "새로고침",
-            onClick = vm::refresh,
-            enabled = connected && !ui.busy,
-        )
-        // 공장 초기화는 되돌릴 수 없으므로 일반 버튼과 떨어뜨려 맨 아래에 둔다.
+        // 공장 초기화는 되돌릴 수 없으므로 스크롤 맨 끝에 두어 하단의 주요 행동 [새로고침] 과 멀리 떨어뜨린다.
         Spacer(modifier = Modifier.size(AgvSpacing.Xl))
+        HorizontalDivider()
         TextButton(
             onClick = { resetAsk = true },
             enabled = connected && !ui.resetBusy && snapshot != null,
@@ -181,6 +182,16 @@ fun DiagnosticsRoute(container: AppContainer) {
         ) {
             Text("공장 초기화…", color = MaterialTheme.colorScheme.error)
         }
+    }
+    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(modifier = Modifier.padding(horizontal = AgvSpacing.L, vertical = AgvSpacing.S)) {
+            PrimaryActionButton(
+                text = "새로고침",
+                onClick = vm::refresh,
+                enabled = connected && !ui.busy,
+            )
+        }
+    }
     }
 
     if (resetAsk) {

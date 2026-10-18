@@ -42,9 +42,7 @@ fun StatusCardView(card: StatusCard, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Column(
-            modifier = Modifier
-                .padding(AgvSpacing.M)
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.padding(AgvSpacing.M),
             verticalArrangement = Arrangement.spacedBy(AgvSpacing.Xxs),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

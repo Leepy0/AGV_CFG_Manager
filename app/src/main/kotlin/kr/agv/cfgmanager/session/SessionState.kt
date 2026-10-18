@@ -38,9 +38,12 @@ object ConnectionChipMapper {
             tone = ChipTone.Warn,
             detail = null,
         )
-        LinkStatus.Disconnected ->
-            if (state.scanning) ChipUi("찾는 중", ChipTone.Neutral, null)
-            else ChipUi("끊김", ChipTone.Warn, state.notice)
+        LinkStatus.Disconnected -> when {
+            state.scanning -> ChipUi("찾는 중", ChipTone.Neutral, null)
+            // 아직 연결한 적이 없거나 사용자가 끊은 평상시 상태는 경고가 아니다 (평상시는 중립). 끊긴 사유가 있을 때만 경고다.
+            state.notice != null -> ChipUi("끊김", ChipTone.Warn, state.notice)
+            else -> ChipUi("연결된 보드 없음", ChipTone.Neutral, null)
+        }
     }
 
     /**

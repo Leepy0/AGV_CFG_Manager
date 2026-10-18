@@ -142,7 +142,6 @@ private fun FormBody(
         verticalArrangement = Arrangement.spacedBy(AgvSpacing.M),
     ) {
         Spacer(modifier = Modifier.size(AgvSpacing.S))
-        ProfileRow(ui, vm, onEditProfile)
         ui.linkNote?.let { note ->
             NoticeLine(note, isError = false)
         }
@@ -165,7 +164,7 @@ private fun FormBody(
         }
         val editable = ui.linked
         AgvNumberRow(ui, vm, editable)
-        SummaryCard(ui)
+        SummaryCard(ui, onEditProfile)
         SwitchRow(
             title = "연속 모드",
             summary = "끝나면 다음 호기로 이어서 세팅합니다",
@@ -401,7 +400,7 @@ private fun AgvNumberRow(ui: SettingsUi, vm: SettingsViewModel, editable: Boolea
 
 /** 지금 적용될 핵심 값 요약. 바뀌는 항목에는 "변경" 표식이 붙는다. 세부 값을 열지 않아도 무엇이 나가는지 보인다. */
 @Composable
-private fun SummaryCard(ui: SettingsUi) {
+private fun SummaryCard(ui: SettingsUi, onEditProfile: (String?) -> Unit) {
     val draft = ui.draft ?: return
     val pass = draft.raw(ConfigKey.PASS)
     Surface(
@@ -413,7 +412,19 @@ private fun SummaryCard(ui: SettingsUi) {
             modifier = Modifier.padding(AgvSpacing.M),
             verticalArrangement = Arrangement.spacedBy(AgvSpacing.S),
         ) {
-            Text("적용할 값", style = MaterialTheme.typography.titleSmall)
+            // 프로필은 보드를 고르기 전에 정했다. 여기서는 어느 프로필 값인지 보이고, 값을 고치러 갈 수만 있게 한다.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "적용할 값 · ${ui.selectedProfile?.name ?: "프로필 없음"}",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = { ui.selectedProfile?.let { onEditProfile(it.id) } },
+                    enabled = ui.selectedProfile != null,
+                    modifier = Modifier.heightIn(min = AgvSizes.TouchMin),
+                ) { Text("프로필 편집") }
+            }
             SummaryLine("Wi-Fi", draft.raw(ConfigKey.SSID).ifEmpty { "—" }, ConfigKey.SSID in ui.changed)
             SummaryLine(
                 "비밀번호",

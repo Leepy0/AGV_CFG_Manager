@@ -26,6 +26,13 @@ class ConnectionChipMapperTest {
     }
 
     @Test
+    fun `연결한 적 없는 평상시는 경고가 아니라 중립으로 보인다`() {
+        val chip = ConnectionChipMapper.map(SessionState(link = LinkStatus.Disconnected), nowMs = 0)
+        assertEquals("연결된 보드 없음", chip.label)
+        assertEquals(ChipTone.Neutral, chip.tone)
+    }
+
+    @Test
     fun `찾는 중은 스캔 중이고 연결이 없을 때만 보인다`() {
         val scanning = ConnectionChipMapper.map(SessionState(scanning = true), nowMs = 0)
         assertEquals("찾는 중", scanning.label)
