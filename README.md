@@ -72,10 +72,15 @@ GitHub 저장소 Settings → Secrets and variables → Actions 에 다음 네 �
 **릴리스 절차:**
 
 1. `app/build.gradle.kts` 의 기본 `versionName` 을 새 버전(예: `0.1.0`)으로 맞추고 main 에 머지합니다.
-2. 태그를 밀거나 수동 실행합니다.
-   - `git tag v0.1.0 && git push origin v0.1.0`
-   - 또는 Actions → android → Run workflow → `release` 체크.
-3. CI 가 태그(또는 기본 versionName)와 `app/build.gradle.kts` 의 기본 versionName 이 다르면 빌드 전에 실패합니다. secrets 가 없어도 명확한 메시지와 함께 실패합니다.
+2. **지금은 한 PC 에서 빌드해 올립니다.** 릴리스 키(secrets) 없이 디버그 키로 서명하는 방식이라, CI 에서 만들면 러너마다 서명 키가 달라 릴리스끼리 덮어 설치되지 않습니다. 그래서 태그를 밀어도 CI 가 릴리스를 만들지 않습니다.
+   ```
+   ./gradlew :core:test :app:testDebugUnitTest :app:assembleRelease -Pchannel=release -PversionName=X.Y.Z -PversionCode=NNN -PsourceRevision=<짧은 sha>
+   ```
+   `app-release.apk` 를 `AgvCfgManager.apk` 로 복사하고, `AgvCfgManager.apk.sha256`(`sha256sum` 형식)과 `AgvCfgManager.json`(`.github/scripts/release_manifest.py` 와 같은 키)을 만든 뒤 올립니다.
+   ```
+   gh release create vX.Y.Z AgvCfgManager.apk AgvCfgManager.apk.sha256 AgvCfgManager.json --title vX.Y.Z --notes-file notes.md
+   ```
+3. 릴리스 키를 만들어 위 secrets 네 개를 등록하면, `android.yml` 의 `push` 에 `tags: ['v*.*.*']` 를 되살려 CI 릴리스로 돌아갈 수 있습니다(태그와 기본 versionName 이 다르면 CI 가 빌드 전에 실패합니다).
 4. 확인: `curl -sL https://github.com/Leepy0/AGV_CFG_Manager/releases/latest/download/AgvCfgManager.json` 에 `version` · `sha256` 이 있고, 받은 APK 크기가 `size` 와 같아야 합니다.
 
 `versionCode` 는 `X*10000 + Y*100 + Z` 입니다(0.1.0 → 100, 1.2.3 → 10203). Y · Z 는 0~99 여야 합니다.

@@ -1,9 +1,10 @@
 name: android
 
+# 정식 릴리스는 태그를 밀어도 CI 가 만들지 않는다. 서명 키가 없으면 러너마다 새 디버그 키로 서명돼
+# 릴리스끼리 덮어 설치되지 않기 때문이다. 한 PC 에서 빌드해 올린다 (README "릴리스", docs/DECISIONS.md).
 on:
   push:
     branches: [main]
-    tags: ['v*.*.*']
   pull_request:
   workflow_dispatch:
     inputs:
