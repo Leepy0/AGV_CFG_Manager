@@ -11,7 +11,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -111,11 +113,6 @@ fun AppRoot(container: AppContainer) {
     val scope = rememberCoroutineScope()
     val notify: (String) -> Unit = { text -> scope.launch { snackbar.showSnackbar(text) } }
 
-    // 시작 때 자동 확인에서 새 버전을 찾으면 한 줄로 알린다 (F-G3). 실패는 알리지 않는다.
-    LaunchedEffect(Unit) {
-        container.updateNotices.collect { text -> notify(text) }
-    }
-
     val openTab: (TopLevelDestination) -> Unit = { destination ->
         navController.navigate(destination.route) {
             popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -125,6 +122,20 @@ fun AppRoot(container: AppContainer) {
     }
     val push: (String) -> Unit = { route ->
         navController.navigate(route) { launchSingleTop = true }
+    }
+
+    // 시작 때 자동 확인에서 새 버전을 찾으면 한 줄로 알린다 (F-G3). 실패는 알리지 않는다.
+    // 알림의 [업데이트] 를 누르면 정보 화면으로 가서 바로 받기를 시작한다 (설치는 받은 뒤 [설치] 로).
+    LaunchedEffect(Unit) {
+        container.updateNotices.collect { text ->
+            scope.launch {
+                val result = snackbar.showSnackbar(text, actionLabel = "업데이트", duration = SnackbarDuration.Long)
+                if (result == SnackbarResult.ActionPerformed) {
+                    push(ROUTE_ABOUT)
+                    container.updateActions.download()
+                }
+            }
+        }
     }
 
     NavigationSuiteScaffold(
