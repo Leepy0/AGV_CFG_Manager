@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- iOS grouped background (systemGroupedBackground). 콜드 스타트 창 배경과 Compose 배경을 맞춘다. -->
+    <color name="agv_window_background">#F2F2F7</color>
+    <color name="agv_accent">#007AFF</color>
+</resources>
