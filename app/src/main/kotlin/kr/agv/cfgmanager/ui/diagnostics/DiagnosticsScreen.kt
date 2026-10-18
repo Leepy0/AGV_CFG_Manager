@@ -193,6 +193,8 @@ fun DiagnosticsRoute(container: AppContainer) {
             ) {
                 Text(if (ui.resetBusy) "초기화 중…" else "공장 초기화…")
             }
+            // 스크롤 끝에서도 하단 [새로고침] 과 붙지 않게 아래를 넉넉히 비운다 (잘못 누름 방지).
+            Spacer(modifier = Modifier.size(AgvSpacing.Xxl))
         }
     }
     Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
