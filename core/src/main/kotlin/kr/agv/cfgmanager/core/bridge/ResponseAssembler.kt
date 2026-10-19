@@ -53,7 +53,20 @@ data class Reply(val text: String, val end: ReplyEnd)
 class ResponseAssembler(private val rule: ReplyRule) {
     private val buffer = StringBuilder()
 
-    val text: String get() = buffer.toString()
+    /**
+     * 받은 텍스트. 펌웨어 0.8.0+ 가 응답마다 붙이는 끝 표시 줄(`>`, BR-8)은 뺀다.
+     * 앞 명령의 끝 표시가 이번 응답 앞에 늦게 와도 응답으로 읽지 않는다. USB 콘솔(Prompt)은 그대로 둔다.
+     */
+    val text: String
+        get() {
+            if (rule == ReplyRule.Prompt) return buffer.toString()
+            val s = buffer.toString()
+            val last = s.lastIndexOf('\n')
+            if (last < 0) return if (isMarker(s)) "" else s
+            val body = s.substring(0, last).split('\n').filterNot(::isMarker).joinToString("") { it + "\n" }
+            val tail = s.substring(last + 1)
+            return body + if (isMarker(tail)) "" else tail
+        }
 
     fun append(chunk: String) {
         buffer.append(chunk)
@@ -61,27 +74,55 @@ class ResponseAssembler(private val rule: ReplyRule) {
 
     /** 규칙의 표지(줄바꿈 · 프롬프트 · 접두어 줄)를 이미 받았는가. */
     fun markerReached(): Boolean = when (val r = rule) {
-        ReplyRule.SingleLine -> buffer.indexOf("\n") >= 0
+        ReplyRule.SingleLine -> text.indexOf('\n') >= 0
         is ReplyRule.AfterLinePrefix -> completeLines().any { line -> r.prefixes.any { line.startsWith(it) } }
-        ReplyRule.IdleOnly -> buffer.isNotEmpty()
+        ReplyRule.IdleOnly -> text.isNotEmpty()
         ReplyRule.Prompt -> TerminalText.endsWithPrompt(TerminalText.clean(text))
     }
 
-    /** 표지만으로 바로 끝나는 규칙이고 표지를 받았는가. */
-    fun endsOnMarker(): Boolean = (rule == ReplyRule.SingleLine || rule == ReplyRule.Prompt) && markerReached()
+    /** 표지만으로 바로 끝나는 규칙이고 표지를 받았는가. 끝 표시 줄(`>`)이 내용 뒤에 오면 어떤 규칙이든 끝이다. */
+    fun endsOnMarker(): Boolean =
+        ((rule == ReplyRule.SingleLine || rule == ReplyRule.Prompt) && markerReached()) || endLineSeen()
 
     /** 지금 유휴 시간이 지나면 끝나도 되는가. */
     fun mayEndOnIdle(): Boolean = when (rule) {
         ReplyRule.SingleLine, ReplyRule.Prompt -> false
         is ReplyRule.AfterLinePrefix -> markerReached()
-        ReplyRule.IdleOnly -> buffer.isNotEmpty()
+        ReplyRule.IdleOnly -> text.isNotEmpty()
     }
 
-    private fun completeLines(): List<String> {
+    private fun isMarker(line: String): Boolean = line.trim() == END_LINE
+
+    /** 내용 줄이 먼저 나온 뒤 끝 표시 줄이 왔는가 (내용 앞의 `>` 는 앞 명령의 늦은 표시라 무시). */
+    private fun endLineSeen(): Boolean {
+        if (rule == ReplyRule.Prompt) return false
+        var body = false
+        for (line in rawCompleteLines()) {
+            if (isMarker(line)) {
+                if (body) return true
+            } else if (line.isNotBlank()) {
+                body = true
+            }
+        }
+        return false
+    }
+
+    private fun rawCompleteLines(): List<String> {
         val s = buffer.toString()
         val last = s.lastIndexOf('\n')
         if (last < 0) return emptyList()
+        return s.substring(0, last).split('\n')
+    }
+
+    private fun completeLines(): List<String> {
+        val s = text
+        val last = s.lastIndexOf('\n')
+        if (last < 0) return emptyList()
         return s.substring(0, last).split('\n').map { it.trimEnd('\r') }
+    }
+
+    private companion object {
+        const val END_LINE = ">"
     }
 }
 

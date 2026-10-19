@@ -25,7 +25,7 @@ class ApplyMessagesTest {
         val view = ApplyMessages.view(failed(ApplyStep.SendSet, ApplyFailure.InvalidValue(ConfigKey.SERVER, "invalid key or value: server")))
         assertEquals(false, view.success)
         assertTrue(view.title.contains("server"))
-        assertEquals(listOf(ResultAction.Retry, ResultAction.Console), view.actions)
+        assertEquals(listOf(ResultAction.Retry, ResultAction.Console, ResultAction.Dismiss), view.actions)
     }
 
     @Test

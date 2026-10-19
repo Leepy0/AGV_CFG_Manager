@@ -183,9 +183,12 @@ object ResponseParsers {
 
     /** `set` 응답: 성공 `ok <key> - 'save' ...` (콘솔은 키 없음), 실패 `invalid key or value: <key>`. */
     fun parseSetResult(text: String): SetResult {
-        val line = firstLine(text) ?: return SetResult.Unknown
-        setOkRe.matchEntire(line)?.let { return SetResult.Ok(it.groupValues[1].ifEmpty { null }) }
-        setInvalidRe.matchEntire(line)?.let { return SetResult.Invalid(it.groupValues[1].ifEmpty { null }) }
+        // 응답 앞에 다른 줄(비동기 로그 등)이 끼어도 놓치지 않게 모든 줄을 본다.
+        for (raw in clean(text)) {
+            val line = raw.trim()
+            setOkRe.matchEntire(line)?.let { return SetResult.Ok(it.groupValues[1].ifEmpty { null }) }
+            setInvalidRe.matchEntire(line)?.let { return SetResult.Invalid(it.groupValues[1].ifEmpty { null }) }
+        }
         return SetResult.Unknown
     }
 

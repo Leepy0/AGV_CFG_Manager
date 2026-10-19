@@ -166,6 +166,9 @@ class ResponseParsersTest {
         val consoleInvalid = ResponseParsers.parseSetResult(fixture("console_set_invalid.txt"))
         assertEquals(ResponseParsers.SetResult.Invalid(null), consoleInvalid)
         assertEquals(ResponseParsers.SetResult.Unknown, ResponseParsers.parseSetResult("usage: set <key> <value>\r\n"))
+        // 응답 앞에 다른 줄이 끼어도 성공을 놓치지 않는다
+        val withNoise = ResponseParsers.parseSetResult("time synced\r\nok pass - 'save' then 'reboot' to apply\r\n")
+        assertEquals(ResponseParsers.SetResult.Ok("pass"), withNoise)
     }
 
     @Test

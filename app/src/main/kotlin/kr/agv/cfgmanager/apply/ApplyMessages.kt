@@ -35,7 +35,9 @@ object ApplyMessages {
 
     /** [nextAgv] 가 있으면 연속 모드 중이다. 성공 카드의 기본 버튼은 [ResultAction.NextAgv] 가 된다. */
     fun view(result: ApplyResult, nextAgv: Int? = null, restorable: Boolean = false): ResultView {
-        val base = baseView(result, nextAgv)
+        // 어떤 결과 카드든 설정 화면으로 돌아갈 [확인] 이 있어야 한다 (없으면 오류 카드에서 갇힌다).
+        val raw = baseView(result, nextAgv)
+        val base = if (ResultAction.Dismiss in raw.actions) raw else raw.copy(actions = raw.actions + ResultAction.Dismiss)
         val applied = result.outcome == ApplyOutcome.Applied || result.outcome == ApplyOutcome.SavedOnly
         if (!restorable || !applied) return base
         // 되돌리기는 확인 버튼 바로 앞의 맨 아래 보조 행동이다 (주요 행동과 떨어뜨린다).
@@ -167,7 +169,7 @@ object ApplyMessages {
             is ApplyFailure.Unexpected -> ResultView(
                 "예상하지 못한 응답입니다",
                 stepLabel(step),
-                "${failure.redactedLine} 의 응답을 해석하지 못했습니다. 콘솔에서 확인하세요.",
+                "${failure.redactedLine} 의 응답을 해석하지 못했습니다. 장치 응답: ${replySnippet(failure.reply)}. 콘솔에서 확인하세요.",
                 false,
                 listOf(ResultAction.Console),
             )
@@ -180,4 +182,10 @@ object ApplyMessages {
         val info = WifiReason.describe(reason)
         return "사유 ${info.code}${info.name?.let { " ($it)" }.orEmpty()}: ${info.message}"
     }
+}
+
+/** 해석하지 못한 응답을 카드에 한 줄로 보인다 (줄바꿈은 " / ", 길면 자른다). 비밀번호는 응답에 실리지 않는다. */
+private fun replySnippet(reply: String): String {
+    val oneLine = reply.split('\n', '\r').map { it.trim() }.filter { it.isNotEmpty() }.joinToString(" / ")
+    return if (oneLine.isEmpty()) "(빈 응답)" else if (oneLine.length > 120) oneLine.take(120) + "…" else "\"$oneLine\""
 }

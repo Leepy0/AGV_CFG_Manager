@@ -152,4 +152,22 @@ class ResponseAssemblerTest {
         assembler.append(" - 'save' then 'reboot' to apply\r\n")
         assertTrue(assembler.endsOnMarker())
     }
+
+    @Test
+    fun `앞 명령의 늦은 끝 표시 줄이 먼저 와도 이번 응답을 읽는다`() = runTest {
+        val channel = Channel<ByteArray>(Channel.UNLIMITED)
+        feed(">\r\nok pass - 'save' then 'reboot' to apply\r\n>\r\n", size = 5, channel = channel)
+        val reply = readReply(channel, ReplyRule.SingleLine)
+        assertEquals(ReplyEnd.Marker, reply.end)
+        assertEquals("ok pass - 'save' then 'reboot' to apply\r\n", reply.text)
+    }
+
+    @Test
+    fun `여러 줄 응답은 끝 표시 줄에서 유휴 시간을 기다리지 않고 끝난다`() = runTest {
+        val channel = Channel<ByteArray>(Channel.UNLIMITED)
+        feed("agv=7 ssid=\"A\" pass=(8 chars)\r\nstate=saved\r\n>\r\n", size = 9, channel = channel)
+        val reply = readReply(channel, ReplyRule.CFG)
+        assertEquals(ReplyEnd.Marker, reply.end)
+        assertEquals("agv=7 ssid=\"A\" pass=(8 chars)\r\nstate=saved\r\n", reply.text)
+    }
 }
