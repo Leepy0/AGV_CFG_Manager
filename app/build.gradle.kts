@@ -9,8 +9,8 @@ plugins {
 // 빌드 값은 -P 로 덮어쓴다. CI 는 태그에서 versionName/versionCode 를 계산해 넘긴다 (docs/DEVELOPMENT_PLAN.md 12장).
 //   ./gradlew :app:assembleDebug -Pchannel=dev -PversionName=1.0.0 -PversionCode=10000
 val appChannel: String = providers.gradleProperty("channel").orElse("local").get()
-val appVersionName: String = providers.gradleProperty("versionName").orElse("1.1.5").get()
-val appVersionCode: Int = providers.gradleProperty("versionCode").orElse("10105").get().toInt()
+val appVersionName: String = providers.gradleProperty("versionName").orElse("1.1.6").get()
+val appVersionCode: Int = providers.gradleProperty("versionCode").orElse("1.1.6").get().toInt()
 // 커밋 식별자 (정보 화면). CI 는 -PsourceRevision=<짧은 sha> 를 넘긴다. 로컬 빌드는 "local".
 val appRevision: String = providers.gradleProperty("sourceRevision").orElse("local").get()
 

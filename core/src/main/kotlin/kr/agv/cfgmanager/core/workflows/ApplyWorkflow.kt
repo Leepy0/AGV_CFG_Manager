@@ -4,6 +4,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kr.agv.cfgmanager.core.bridge.BridgeChannelException
@@ -35,6 +36,7 @@ class ApplyWorkflow(
     private val wifiTimeout: Duration = 30.seconds,
     private val wifiPollInterval: Duration = 2.seconds,
     private val maxLinkAttempts: Int = 2,
+    private val linkDropTimeout: Duration = 10.seconds,
 ) {
     /**
      * 적용을 실행하고 결과를 돌려준다. [onProgress] 로 단계를 알리고, 마지막에 [WorkflowProgress.Finished] 를 준다.
@@ -154,6 +156,8 @@ class ApplyWorkflow(
 
             step = ApplyStep.WaitReady
             report("재연결 대기")
+            // 보드가 링크를 끊기 전에 waitReady 를 부르면 죽어 가는 옛 링크를 "준비됨"으로 본다. 끊김을 먼저 기다린다.
+            withTimeoutOrNull(linkDropTimeout) { channel.state.first { it !is ChannelState.Connected } }
             if (!channel.waitReady(reconnectTimeout)) {
                 bootNote = BootNote.timeout(nowMillis() - rebootStartMs)
                 throw StepFailure(ApplyFailure.ReconnectTimeout)
