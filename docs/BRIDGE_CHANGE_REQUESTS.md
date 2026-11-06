@@ -4,7 +4,7 @@ AGV CFG Manager(Android, BLE) 가 더 단순하고 견고하게 동작하기 위
 
 - 앱은 **모든 항목이 미반영이어도 동작**합니다(텍스트 파싱). 반영되면 앱이 출력 형식을 보고 새 경로를 씁니다.
 - 각 항목은 브리지 저장소의 이슈로 그대로 옮길 수 있게 썼습니다. 제안 구현은 참고용이며 브리지 쪽 관례(`cmd.c` 공용 명령, 호스트 시험 `tests/bridge_util`)를 따릅니다.
-- 요청 우선순위: 높음(BR-1 · BR-8) → 중간(BR-3 · BR-4 · BR-9) → 낮음(BR-5 · BR-6 · BR-7).
+- 요청 우선순위: 높음(BR-1 · BR-8 · BR-10) → 중간(BR-3 · BR-4 · BR-9) → 낮음(BR-5 · BR-6 · BR-7).
 
 ## BR-1. `cfg json` · `stat json` — 기계용 JSON 출력 (높음)
 
@@ -127,6 +127,19 @@ login <password>
 - README 첫 줄의 "현재 버전 v0.5.2" → 0.5.5, FLASH_GUIDE 의 기준 버전 표기도 함께.
 - FLASH_GUIDE 5장 설정 키 표에 `dns` · `dns2` 추가(README 에는 이미 있음).
 - `cfg` 텍스트 출력 형식이 **외부 도구(이 앱)가 파싱하는 인터페이스**임을 `app_config.c` `cfg_format()` 주석에 남겨, 형식을 바꿀 때 버전 · 호환 표를 갱신하도록 함.
+
+## BR-10. 보관 패키지 읽기 (높음)
+
+**상태.** 브리지 **0.9.1** 에 이미 구현돼 있습니다. 요청이 아니라 기록입니다. 앱은 이 명령으로 메인보드 원본(`.out` · `.map`)을 받습니다.
+
+**명령.**
+
+- `dsp pkg json` : 슬롯 목록을 한 줄 JSON 으로 돌려줍니다.
+- `dsp pkg read <slot> <off> <len>` : 패키지 조각을 돌려줍니다.
+
+둘 다 로컬에서만 받습니다. 메인보드 굽는 중이나 스테이징 중에는 거부합니다.
+
+와이어 형식(줄 규격, CRC, 오류 코드)은 [superpowers/plans/2026-11-06-bridge-package-download.md](superpowers/plans/2026-11-06-bridge-package-download.md) 를 봅니다.
 
 ## 앱이 요청 없이 감수하는 것 (참고)
 

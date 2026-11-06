@@ -8,6 +8,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 - `set` → `cfg` 대조 → `save` → `reboot` → 재연결 → `wifi: UP` 확인까지 자동. 여러 대 연속 세팅.
 - 진단: Wi-Fi 끊김 사유 해석, 게이트웨이 PC 도달 확인, 콘솔.
 - 앱 내 업데이트: 정보 화면의 [지금 확인] 또는 시작 때 자동 확인 → 받기 → sha256 검사 → 설치.
+- 메인보드 원본: 브리지에 보관된 .out · .map 을 BLE · USB 로 받아 폴더에 저장 (브리지 0.9.1 이상).
 - 굽기는 범위 밖입니다(PC 에서 `flash.bat`).
 
 | 문서 | 내용 |
@@ -95,7 +96,7 @@ GitHub 저장소 Settings → Secrets and variables → Actions 에 다음 네 �
 
 ## 지원 브리지 버전
 
-펌웨어 **0.5.0 ~ 0.5.5** 를 지원합니다(기준 0.5.5). 구버전은 출력으로 기능을 감지하므로 설정 · 읽기 · 적용이 그대로 동작합니다. 브리지에 요청한 변경은 [docs/BRIDGE_CHANGE_REQUESTS.md](docs/BRIDGE_CHANGE_REQUESTS.md) 를 참고합니다.
+펌웨어 **0.5.0 ~ 0.5.5** 를 지원합니다(기준 0.5.5). 구버전은 출력으로 기능을 감지하므로 설정 · 읽기 · 적용이 그대로 동작합니다. 브리지에 요청한 변경은 [docs/BRIDGE_CHANGE_REQUESTS.md](docs/BRIDGE_CHANGE_REQUESTS.md) 를 참고합니다. 메인보드 원본 받기는 0.9.1 이상이 필요하고 다른 기능은 그대로입니다.
 
 ## 현장 확인 (실기)
 
