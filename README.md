@@ -9,6 +9,7 @@ ESP32-S3 AGV Wi-Fi 브리지([AGV_Wifi_Bridge](https://github.com/Leepy0/AGV_Wif
 - 진단: Wi-Fi 끊김 사유 해석, 게이트웨이 PC 도달 확인, 콘솔.
 - 앱 내 업데이트: 정보 화면의 [지금 확인] 또는 시작 때 자동 확인 → 받기 → sha256 검사 → 설치.
 - 메인보드 원본: 브리지에 보관된 .out · .map 을 BLE · USB 로 받아 폴더에 저장 (브리지 0.9.1 이상).
+  - `.out` 에 내장 소스가 있으면 내장 소스도 `src/` 에 저장.
 - 굽기는 범위 밖입니다(PC 에서 `flash.bat`).
 
 | 문서 | 내용 |

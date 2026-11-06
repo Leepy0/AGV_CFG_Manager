@@ -36,7 +36,9 @@ sealed interface PkgUi {
     data object Empty : PkgUi
     data class Slots(val slots: List<PkgSlot>, val preferred: Int?) : PkgUi
     data class Downloading(val slot: PkgSlot, val done: Long, val total: Long) : PkgUi
-    data class ReadyToSave(val files: PkgFiles, val folder: String) : PkgUi
+    data class ReadyToSave(val files: PkgFiles, val folder: String) : PkgUi {
+        val sourceCount: Int get() = files.sources.size
+    }
     data class Saved(val folder: String) : PkgUi
     data class Error(val text: String, val canRetry: Boolean) : PkgUi
 }

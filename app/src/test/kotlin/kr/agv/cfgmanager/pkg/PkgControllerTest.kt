@@ -21,10 +21,13 @@ import kr.agv.cfgmanager.core.bridge.ChannelState
 import kr.agv.cfgmanager.core.bridge.IBridgeChannel
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.file.Files
 import java.security.MessageDigest
 import java.util.Base64
 import java.util.zip.CRC32
+import java.util.zip.DeflaterOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -54,10 +57,24 @@ private fun zipOf(vararg entries: Pair<String, ByteArray>): ByteArray {
     return bytes.toByteArray()
 }
 
+private fun le32(v: Int) = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(v).array()
+
+/** `.srcfiles` 섹션 하나만 있는 최소 TI COFF2. 섹션 이름은 문자열 표 오프셋 4 에 있다. */
+private fun embeddedOut(vararg files: Pair<String, ByteArray>): ByteArray {
+    val raw = files.fold(ByteArray(0)) { acc, (name, data) -> acc + name.toByteArray() + 0 + le32(data.size) + data }
+    val packed = ByteArrayOutputStream().also { s -> DeflaterOutputStream(s).use { it.write(raw) } }.toByteArray()
+    val blob = ("AGVSRC1\u0000".toByteArray() + le32(raw.size) + packed).let { if (it.size % 2 == 0) it else it + 0 }
+    val strtab = le32(14) + ".srcfiles\u0000".toByteArray()
+    val dataAt = 22 + 48
+    val head = ByteBuffer.allocate(dataAt).order(ByteOrder.LITTLE_ENDIAN)
+        .putShort(0xC2).putShort(1).putInt(0).putInt(dataAt + blob.size).putInt(0).putShort(0).putShort(0).putShort(0x9D)
+        .putInt(0).putInt(4).putInt(0).putInt(0).putInt(blob.size / 2).putInt(dataAt)
+    return head.array() + blob + strtab
+}
+
 /** 규격에 맞는 가짜 패키지. 크기가 512 를 넘어 청크가 여러 번 나뉜다. */
-private fun validPackage(): ByteArray {
+private fun validPackage(out: ByteArray = ByteArray(1500) { (it % 251).toByte() }): ByteArray {
     val dspfw = ByteArray(300) { (it % 7).toByte() }
-    val out = ByteArray(1500) { (it % 251).toByte() }
     val map = "OUTPUT FILE NAME:   <AGV_Main.out>\n".toByteArray()
     fun entry(name: String, bytes: ByteArray) =
         """{"name":"$name","orig_name":"x.bin","size":${bytes.size},"sha256":"${sha(bytes)}"}"""
@@ -203,7 +220,19 @@ class PkgControllerTest {
         val ready = assertIs<PkgUi.ReadyToSave>(c.ui.value)
         assertEquals("AGV07_${VER}_${id.take(8)}", ready.folder)
         assertTrue(ready.files.out.isFile && ready.files.map.isFile)
+        assertEquals(0, ready.sourceCount)
         assertTrue(seen.any { it is PkgUi.Downloading && it.done > 0 && it.done < it.total })
+    }
+
+    @Test
+    fun `내장 소스가 있으면 ReadyToSave 에 소스 수가 실린다`() = runTest {
+        val pkg = validPackage(embeddedOut("main.c" to "// 한글\n".toByteArray(), "tag.h" to ByteArray(700) { 'x'.code.toByte() }))
+        val c = controller(PkgChannel(pkg, manifestId(pkg)))
+        c.download(slotsOf(c).slots.single())
+        c.until { it is PkgUi.ReadyToSave }
+        val ready = assertIs<PkgUi.ReadyToSave>(c.ui.value)
+        assertEquals(2, ready.sourceCount)
+        assertEquals(listOf("main.c", "tag.h"), ready.files.sources.map { it.name })
     }
 
     @Test

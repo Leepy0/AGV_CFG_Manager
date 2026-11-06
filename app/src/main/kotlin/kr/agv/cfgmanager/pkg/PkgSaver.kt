@@ -9,6 +9,7 @@ import java.io.IOException
 
 /**
  * 고른 폴더 아래에 [folder] 하위 폴더를 만들고 `.out` · `.map` 두 파일을 쓴다 (SAF, 권한은 이번 한 번만).
+ * 내장 소스가 있으면 그 아래 `src` 폴더에 함께 쓴다.
  * 블로킹 I/O 이므로 IO 디스패처에서 부른다. 실패하면 만들다 만 폴더를 지우고 [IOException] 을 던진다.
  */
 object PkgSaver {
@@ -22,6 +23,11 @@ object PkgSaver {
                 ?: throw IOException("폴더를 만들지 못함")
             created = dir
             for (file in listOf(files.out, files.map)) copyInto(resolver, dir, file)
+            if (files.sources.isNotEmpty()) {
+                val src = DocumentsContract.createDocument(resolver, dir, DocumentsContract.Document.MIME_TYPE_DIR, "src")
+                    ?: throw IOException("폴더를 만들지 못함")
+                for (file in files.sources) copyInto(resolver, src, file)
+            }
         } catch (e: IOException) {
             discard(resolver, created)
             throw e

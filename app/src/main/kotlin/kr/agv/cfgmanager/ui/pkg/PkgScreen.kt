@@ -126,6 +126,13 @@ fun PkgScreen(container: AppContainer) {
             ) {
                 Text("받기 완료", style = MaterialTheme.typography.titleMedium)
                 Text(state.folder, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.sourceCount > 0) {
+                    Text(
+                        "소스 ${state.sourceCount}개",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (saveError) {
                     Text(SAVE_FAILED, style = MaterialTheme.typography.bodyMedium, color = AgvTheme.status.alarm)
                 }

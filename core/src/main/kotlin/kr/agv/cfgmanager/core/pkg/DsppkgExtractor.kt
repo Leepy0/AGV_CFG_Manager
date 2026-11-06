@@ -18,7 +18,8 @@ import java.util.zip.ZipFile
 /** 패키지가 규격에 맞지 않거나 ZIP 이 깨졌다. */
 class PkgFormatException(message: String) : Exception(message)
 
-data class PkgFiles(val out: File, val map: File)
+/** [sources] 는 `.out` 에 내장된 소스를 `src/` 에 푼 것이다. 내장되지 않았으면 빈 목록. */
+data class PkgFiles(val out: File, val map: File, val sources: List<File> = emptyList())
 
 // 압축 해제 기준 한도 (DSP_OTA_DESIGN.md 3-1절). ZIP 선언값이 아니라 읽으며 센다.
 internal val PKG_LIMITS = mapOf(
@@ -41,7 +42,8 @@ object DsppkgExtractor {
     private val FILE_KINDS = listOf("dspfw", "out", "map")
 
     /**
-     * [pkg] 를 검증하고 `.out` · `.map` 을 [dir] 에 항목 이름 그대로 둔다. 실패하면 [dir] 은 빈 폴더로 남는다.
+     * [pkg] 를 검증하고 `.out` · `.map` 을 [dir] 에 항목 이름 그대로 둔다. `.out` 에 내장된 소스는 `src/` 에 푼다.
+     * 실패하면 [dir] 은 빈 폴더로 남는다.
      * 블로킹 I/O 다.
      *
      * dir 은 이 함수가 소유한다. 시작할 때 내용을 모두 지운다.
@@ -64,7 +66,8 @@ object DsppkgExtractor {
             extracted = readingNames { ZipFile(pkg) }.use { zip ->
                 val entries = classify(readingNames { zip.entries().toList() })
                 unpack(dir, zip, entries, id, ver, limits)
-                PkgFiles(File(dir, entries.getValue("out").name), File(dir, entries.getValue("map").name))
+                val out = File(dir, entries.getValue("out").name)
+                PkgFiles(out, File(dir, entries.getValue("map").name), EmbeddedSource.extract(out, File(dir, "src")))
             }
             return extracted
         } catch (e: ZipException) {

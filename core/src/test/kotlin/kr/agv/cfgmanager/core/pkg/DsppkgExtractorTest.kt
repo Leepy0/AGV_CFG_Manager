@@ -155,6 +155,28 @@ class DsppkgExtractorTest {
     }
 
     @Test
+    fun `내장 소스가 있는 out 이면 src 폴더에 함께 푼다`() {
+        val out = srcCoffOf("main.c" to "// 한글\n".toByteArray(), "tag.h" to "#define T\n".toByteArray())
+        val manifest = manifest(out = out)
+        pkg.writeBytes(packageOf(manifest, out = out))
+
+        val files = DsppkgExtractor.extract(pkg, idOf(manifest), VER, dir)
+
+        assertEquals(listOf(File(dir, "src/main.c"), File(dir, "src/tag.h")), files.sources)
+        assertContentEquals("// 한글\n".toByteArray(), files.sources[0].readBytes())
+        assertContentEquals(out, files.out.readBytes())
+        assertEquals(setOf(OUT_NAME, MAP_NAME, "src"), dir.list().orEmpty().toSet())
+    }
+
+    @Test
+    fun `내장 소스가 손상되면 패키지를 거부한다`() {
+        val out = coffOf(Section(".srcfiles", srcBlobOf(rawOf("../x.c" to ByteArray(3)))))
+        val manifest = manifest(out = out)
+
+        rejected("내장 소스 손상", packageOf(manifest, out = out), idOf(manifest))
+    }
+
+    @Test
     fun `확장자 대소문자는 무시한다`() {
         val manifest = manifest(dspfwName = "A.DSPFW", outName = "A.Out", mapName = "A.MAP")
         pkg.writeBytes(
