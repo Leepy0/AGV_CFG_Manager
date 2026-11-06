@@ -10,7 +10,6 @@ import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipException
@@ -36,45 +35,56 @@ object DsppkgExtractor {
     private const val FORMAT_VER = 1L
     private const val ENTRY_COUNT = 4
 
-    // 항목 이름은 영숫자로 시작하므로 이 폴더와 겹치지 않는다
-    private const val TEMP_DIR = ".extracting"
+    // 검증 전 이름은 길이 제한이 없어 메시지에는 잘라서 쓴다
+    private const val SHOWN_NAME_MAX = 80
     private val NAME_RE = Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,59}")
     private val FILE_KINDS = listOf("dspfw", "out", "map")
 
     /**
-     * [pkg] 를 검증하고 `.out` · `.map` 을 [dir] 에 항목 이름 그대로 둔다. 실패하면 [dir] 에 새 파일을 남기지 않는다.
+     * [pkg] 를 검증하고 `.out` · `.map` 을 [dir] 에 항목 이름 그대로 둔다. 실패하면 [dir] 은 빈 폴더로 남는다.
      * 블로킹 I/O 다.
      *
+     * dir 은 이 함수가 소유한다. 시작할 때 내용을 모두 지운다.
+     *
      * @throws PkgFormatException 패키지가 규격에 맞지 않거나 ZIP 이 깨졌다.
-     * @throws IOException 패키지를 읽지 못했거나 [dir] 에 쓰지 못했다. 패키지 잘못이 아니다.
+     * @throws IOException 패키지를 읽지 못했거나 [dir] 을 비우거나 쓰지 못했다. 패키지 잘못이 아니다.
+     * @throws IllegalArgumentException [pkg] 가 [dir] 안에 있다. 아무것도 지우지 않는다.
      */
     fun extract(pkg: File, id: String, ver: String, dir: File): PkgFiles = extract(pkg, id, ver, dir, PKG_LIMITS)
 
     internal fun extract(pkg: File, id: String, ver: String, dir: File, limits: Map<String, Long>): PkgFiles {
-        val temp = File(dir, TEMP_DIR)
-        temp.deleteRecursively()
-        Files.createDirectories(temp.toPath())
+        // 비우기 전에 막는다. 다시 받아야만 복구되는 캐시 원본을 지우면 안 된다
+        require(!pkg.canonicalFile.startsWith(dir.canonicalFile)) { "pkg 가 dir 안에 있음: $pkg" }
+        Files.createDirectories(dir.toPath())
+        val old = dir.listFiles() ?: throw IOException("폴더를 읽지 못함: $dir")
+        if (!old.all { it.deleteRecursively() }) throw IOException("폴더를 비우지 못함: $dir")
+
+        var extracted: PkgFiles? = null
         try {
-            return ZipFile(pkg).use { zip ->
-                val entries = classify(zip)
-                verifyInto(temp, zip, entries, id, ver, limits)
-                promote(temp, dir, entries.getValue("out").name, entries.getValue("map").name)
+            extracted = readingNames { ZipFile(pkg) }.use { zip ->
+                val entries = classify(readingNames { zip.entries().toList() })
+                unpack(dir, zip, entries, id, ver, limits)
+                PkgFiles(File(dir, entries.getValue("out").name), File(dir, entries.getValue("map").name))
             }
+            return extracted
         } catch (e: ZipException) {
             throw PkgFormatException("ZIP 손상: ${e.message}")
         } catch (e: EOFException) {
             throw PkgFormatException("ZIP 손상: ${e.message}")
-        } catch (e: IllegalArgumentException) {
-            // 항목 이름 인코딩이 깨지면 런타임에 따라 ZipException 이 아니라 이 예외가 난다
-            throw PkgFormatException("ZIP 손상: ${e.message}")
         } finally {
-            temp.deleteRecursively()
+            if (extracted == null) dir.listFiles()?.forEach { it.deleteRecursively() }
         }
     }
 
+    /** 항목 이름 인코딩이 깨지면 런타임에 따라 ZipException 이 아니라 IllegalArgumentException 이 난다. */
+    private inline fun <T> readingNames(block: () -> T): T = try {
+        block()
+    } catch (e: IllegalArgumentException) {
+        throw PkgFormatException("ZIP 손상: ${e.message}")
+    }
+
     /** 내용을 읽기 전에 이름만으로 판단한다. 항목 4개가 서로 다른 종류면 네 종류가 다 있다. */
-    private fun classify(zip: ZipFile): Map<String, ZipEntry> {
-        val all = zip.entries().toList()
+    private fun classify(all: List<ZipEntry>): Map<String, ZipEntry> {
         if (all.size != ENTRY_COUNT) throw PkgFormatException("항목 수 ${all.size}개")
         val entries = HashMap<String, ZipEntry>()
         for (entry in all) {
@@ -85,15 +95,18 @@ object DsppkgExtractor {
 
     private fun kindOf(entry: ZipEntry): String {
         val name = entry.name
-        if (entry.isDirectory) throw PkgFormatException("디렉터리 항목: $name")
-        if (!NAME_RE.matches(name) || ".." in name) throw PkgFormatException("항목 이름 규칙 위반: $name")
+        if (entry.isDirectory) throw PkgFormatException("디렉터리 항목: ${name.take(SHOWN_NAME_MAX)}")
+        if (!NAME_RE.matches(name) || ".." in name) {
+            throw PkgFormatException("항목 이름 규칙 위반: ${name.take(SHOWN_NAME_MAX)}")
+        }
         if (name == MANIFEST_NAME) return "manifest"
         return FILE_KINDS.firstOrNull { name.endsWith(".$it", ignoreCase = true) }
             ?: throw PkgFormatException("허용되지 않는 항목: $name")
     }
 
-    private fun verifyInto(
-        temp: File,
+    /** `.dspfw` 는 해시만 확인하고 쓰지 않는다. */
+    private fun unpack(
+        dir: File,
         zip: ZipFile,
         entries: Map<String, ZipEntry>,
         id: String,
@@ -111,7 +124,8 @@ object DsppkgExtractor {
             if (spec.str("name") != entry.name) throw PkgFormatException("manifest name 다름: ${entry.name}")
             val size = spec.long("size")
             val sha256 = spec.str("sha256")
-            val copied = File(temp, entry.name).outputStream().use { zip.copyLimited(entry, limits.getValue(kind), it) }
+            val target = if (kind == "dspfw") null else File(dir, entry.name).outputStream()
+            val copied = target.use { zip.copyLimited(entry, limits.getValue(kind), it) }
             if (copied.size != size) throw PkgFormatException("manifest size 다름: ${entry.name}")
             if (copied.sha256 != sha256.lowercase()) throw PkgFormatException("sha256 다름: ${entry.name}")
         }
@@ -144,7 +158,7 @@ object DsppkgExtractor {
     private class Copied(val size: Long, val sha256: String)
 
     /** ZIP 이 선언한 크기는 쓰지 않는다. 읽으며 세다가 [limit] 를 넘는 순간 멈춘다. */
-    private fun ZipFile.copyLimited(entry: ZipEntry, limit: Long, target: OutputStream): Copied {
+    private fun ZipFile.copyLimited(entry: ZipEntry, limit: Long, target: OutputStream?): Copied {
         val digest = MessageDigest.getInstance("SHA-256")
         val buffer = ByteArray(8192)
         var size = 0L
@@ -155,26 +169,9 @@ object DsppkgExtractor {
                 size += read
                 if (size > limit) throw PkgFormatException("크기 한도 $limit B 초과: ${entry.name}")
                 digest.update(buffer, 0, read)
-                target.write(buffer, 0, read)
+                target?.write(buffer, 0, read)
             }
         }
         return Copied(size, digest.digest().joinToString("") { "%02x".format(it) })
-    }
-
-    private fun promote(temp: File, dir: File, outName: String, mapName: String): PkgFiles {
-        val out = File(dir, outName)
-        val map = File(dir, mapName)
-        move(File(temp, outName), out)
-        try {
-            move(File(temp, mapName), map)
-        } catch (e: IOException) {
-            out.delete()
-            throw e
-        }
-        return PkgFiles(out, map)
-    }
-
-    private fun move(from: File, to: File) {
-        Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING)
     }
 }

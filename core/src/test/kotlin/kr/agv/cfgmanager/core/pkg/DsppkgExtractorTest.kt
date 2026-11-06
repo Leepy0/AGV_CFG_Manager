@@ -8,6 +8,8 @@ import java.nio.ByteOrder
 import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import kotlin.io.path.createTempDirectory
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -15,13 +17,13 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 private const val VER = "1.2.3"
 private const val DSPFW_NAME = "AGV_Main_1.2.3.dspfw"
 private const val OUT_NAME = "AGV_Main.out"
 private const val MAP_NAME = "AGV_Main.map"
-private const val TEMP_DIR = ".extracting"
 
 private val DSPFW = ByteArray(300) { (it % 7).toByte() }
 private val OUT = ByteArray(5000) { (it % 251).toByte() }
@@ -176,19 +178,6 @@ class DsppkgExtractorTest {
         pkg.writeBytes(packageOf(manifest))
 
         DsppkgExtractor.extract(pkg, idOf(manifest), VER, dir)
-    }
-
-    @Test
-    fun `이전 실행의 임시 폴더는 지우고 같은 이름 파일은 바꾼다`() {
-        File(dir, TEMP_DIR).mkdirs()
-        File(dir, "$TEMP_DIR/stale.out").writeText("stale")
-        File(dir, OUT_NAME).writeText("old")
-        pkg.writeBytes(packageOf())
-
-        val files = DsppkgExtractor.extract(pkg, idOf(), VER, dir)
-
-        assertContentEquals(OUT, files.out.readBytes())
-        assertEquals(setOf(OUT_NAME, MAP_NAME), dir.list().orEmpty().toSet())
     }
 
     @Test
@@ -523,13 +512,88 @@ class DsppkgExtractorTest {
         assertFailsWith<IOException> { DsppkgExtractor.extract(pkg, idOf(), VER, dir) }
     }
 
+    private fun leaveOldFiles() {
+        File(dir, "sub").mkdirs()
+        File(dir, "sub/Old.map").writeText("old")
+        File(dir, "Old.out").writeText("old")
+        File(dir, OUT_NAME).writeText("old")
+    }
+
     @Test
-    fun `map 을 옮기지 못하면 IOException 이고 out 을 남기지 않는다`() {
+    fun `dir 의 이전 파일은 성공 뒤 사라진다`() {
+        leaveOldFiles()
         pkg.writeBytes(packageOf())
-        File(dir, "$MAP_NAME/blocker").also { it.parentFile.mkdirs() }.writeText("x")
 
-        assertFailsWith<IOException> { DsppkgExtractor.extract(pkg, idOf(), VER, dir) }
+        val files = DsppkgExtractor.extract(pkg, idOf(), VER, dir)
 
-        assertEquals(listOf(MAP_NAME), dir.list().orEmpty().toList())
+        assertContentEquals(OUT, files.out.readBytes())
+        assertEquals(setOf(OUT_NAME, MAP_NAME), dir.list().orEmpty().toSet())
+    }
+
+    @Test
+    fun `dir 의 이전 파일은 거부 뒤 사라진다`() {
+        leaveOldFiles()
+
+        rejected("패키지 ID", packageOf(), id = "0123456789abcdef")
+    }
+
+    @Test
+    fun `내용 검증에서 거부되면 먼저 쓴 파일도 지운다`() {
+        rejected("sha256", packageOf(map = MAP.reversedArray()))
+    }
+
+    // 다른 OS 는 열린 파일도 지울 수 있어 이 방법으로 재현되지 않는다
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    fun `dir 을 비우지 못하면 IOException 이다`() {
+        pkg.writeBytes(packageOf())
+        dir.mkdirs()
+        File(dir, "Old.out").outputStream().use {
+            assertFailsWith<IOException> { DsppkgExtractor.extract(pkg, idOf(), VER, dir) }
+        }
+    }
+
+    @Test
+    fun `pkg 가 dir 안에 있으면 지우지 않고 거부한다`() {
+        val inside = File(dir, "sub/slot.dsppkg")
+        inside.parentFile.mkdirs()
+        inside.writeBytes(packageOf())
+
+        assertFailsWith<IllegalArgumentException> { DsppkgExtractor.extract(inside, idOf(), VER, dir) }
+
+        assertContentEquals(packageOf(), inside.readBytes())
+    }
+
+    @Test
+    fun `거부 메시지의 항목 이름은 80자로 자른다`() {
+        val long = "a".repeat(300)
+        for (name in listOf("$long.out", "$long/", "$long/x.out")) {
+            pkg.writeBytes(
+                zipOf(
+                    "manifest.json" to manifest().toByteArray(),
+                    DSPFW_NAME to DSPFW,
+                    name to OUT,
+                    MAP_NAME to MAP,
+                ),
+            )
+
+            val e = assertFailsWith<PkgFormatException> { DsppkgExtractor.extract(pkg, idOf(), VER, dir) }
+
+            assertTrue("a".repeat(80) in e.message.orEmpty(), "이름이 메시지에 있어야 함: ${e.message}")
+            assertFalse("a".repeat(81) in e.message.orEmpty(), "이름이 잘리지 않음: ${e.message}")
+        }
+    }
+
+    @Test
+    fun `프로그램 오류의 IllegalArgumentException 은 ZIP 손상으로 바꾸지 않는다`() {
+        val broken = object : Map<String, Long> by PKG_LIMITS {
+            override fun get(key: String): Long = throw IllegalArgumentException("프로그램 오류")
+        }
+        pkg.writeBytes(packageOf())
+
+        val e = assertFailsWith<IllegalArgumentException> { DsppkgExtractor.extract(pkg, idOf(), VER, dir, broken) }
+
+        assertEquals("프로그램 오류", e.message)
+        assertEquals(emptyList(), dir.list().orEmpty().toList())
     }
 }
