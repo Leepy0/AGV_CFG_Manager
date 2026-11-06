@@ -1,6 +1,7 @@
 package kr.agv.cfgmanager.core.pkg
 
 import java.io.File
+import java.security.MessageDigest
 import kotlin.io.path.createTempDirectory
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -31,10 +32,10 @@ class EmbeddedSourceTest {
         root.deleteRecursively()
     }
 
-    private fun rejected(bytes: ByteArray) {
+    private fun rejected(bytes: ByteArray, expected: String = "") {
         out.writeBytes(bytes)
         val e = assertFailsWith<PkgFormatException> { EmbeddedSource.extract(out, dir) }
-        assertTrue("내장 소스 손상" in e.message.orEmpty(), "거부 이유가 다름: ${e.message}")
+        assertTrue("내장 소스 손상: $expected" in e.message.orEmpty(), "거부 이유가 다름: ${e.message}")
         assertEquals(emptyList(), dir.list().orEmpty().toList(), "거부 뒤 dir 이 비어 있어야 함")
     }
 
@@ -64,6 +65,8 @@ class EmbeddedSourceTest {
             listOf("run_process_DA.c" to 258_000L, "tag_DA.c" to 49L, "test.cmd" to 320L),
             files.map { it.name to it.length() },
         )
+        val sha = MessageDigest.getInstance("SHA-256").digest(files[0].readBytes()).joinToString("") { "%02x".format(it) }
+        assertEquals("d4a8ef81a8d4d0e3c84d9954e99aa075fdbc64a31e71ec116c923501d36bb01a", sha)
     }
 
     @Test
@@ -169,8 +172,24 @@ class EmbeddedSourceTest {
     @Test
     fun `한도를 넘는 선언은 풀기 전에 거부한다`() {
         val raw = rawOf("main.c" to MAIN_C)
-        rejected(srcSection(srcBlobOf(raw, declared = 64 * 1024 * 1024 + 1)))
-        rejected(coffOf(Section(".srcfiles", srcBlobOf(raw)), sizeWords = 8L * 1024 * 1024 + 1))
+        rejected(srcSection(srcBlobOf(raw, declared = 16 * 1024 * 1024 + 1)), "원본 길이")
+        // 워드 단위라 2 MiB 워드 + 1 은 4 MiB + 2 B
+        rejected(coffOf(Section(".srcfiles", srcBlobOf(raw)), sizeWords = 2L * 1024 * 1024 + 1), "섹션 크기")
+    }
+
+    @Test
+    fun `한도 안의 선언은 한도 검사로 거부하지 않는다`() {
+        val raw = rawOf("main.c" to MAIN_C)
+        rejected(srcSection(srcBlobOf(raw, declared = 16 * 1024 * 1024)), "원본 길이 부족")
+        rejected(coffOf(Section(".srcfiles", srcBlobOf(raw)), sizeWords = 2L * 1024 * 1024), "섹션이 파일 밖")
+    }
+
+    @Test
+    fun `NUL 없는 긴 이름은 100바이트 안에서 거부한다`() {
+        rejected(srcSection(srcBlobOf(ByteArray(1000) { 'a'.code.toByte() })), "이름 끝 없음")
+        rejected(srcSection(srcBlobOf(rawOf("a".repeat(101) to MAIN_C))), "이름 끝 없음")
+        out.writeBytes(srcSection(srcBlobOf(rawOf("a".repeat(100) to MAIN_C))))
+        assertEquals(1, EmbeddedSource.extract(out, dir).size)
     }
 
     @Test

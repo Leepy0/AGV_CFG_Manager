@@ -14,10 +14,11 @@ import java.util.zip.Inflater
  * 섹션 원시 바이트: `AGVSRC1\0` + u32 LE 원본 길이 + zlib. 원본은 파일마다 (이름 + NUL + u32 LE 크기 + 내용).
  */
 object EmbeddedSource {
-    private const val SECTION_MAX = 16L * 1024 * 1024
-    private const val RAW_MAX = 64L * 1024 * 1024
-    private const val FILE_MAX = 16L * 1024 * 1024
+    private const val SECTION_MAX = 4L * 1024 * 1024
+    private const val RAW_MAX = 16L * 1024 * 1024
+    private const val FILE_MAX = 4L * 1024 * 1024
     private const val COUNT_MAX = 2000
+    private const val NAME_MAX = 100
     private const val FILE_HEADER = 22
     private const val SYMBOL_SIZE = 18
     private val SECTION_NAME = ".srcfiles\u0000".toByteArray()
@@ -133,8 +134,10 @@ object EmbeddedSource {
         var pos = 0
         while (pos < raw.size) {
             if (entries.size == COUNT_MAX) corrupt("파일 수 $COUNT_MAX 개 초과")
+            // 이름은 100바이트까지라 NUL 을 그 안에서만 찾는다
             var end = pos
-            while (end < raw.size && raw[end] != 0.toByte()) end++
+            while (end < raw.size && end - pos < NAME_MAX && raw[end] != 0.toByte()) end++
+            if (end == raw.size || raw[end] != 0.toByte()) corrupt("이름 끝 없음")
             // 규칙 밖 바이트는 ISO-8859-1 로 읽어도 정규식에서 걸린다
             val name = String(raw, pos, end - pos, Charsets.ISO_8859_1)
             if (!NAME_RE.matches(name) || ".." in name) corrupt("이름 규칙 위반: ${name.take(80)}")
