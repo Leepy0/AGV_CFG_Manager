@@ -30,6 +30,7 @@ fun MoreScreen(
     onOpenProfiles: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenExport: () -> Unit,
+    onOpenMainboardPkg: () -> Unit,
     onOpenSummary: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
@@ -42,6 +43,8 @@ fun MoreScreen(
         MoreRow("SSID 라이브러리", "Wi-Fi 이름과 저장된 비밀번호", onOpenLibrary)
         InsetDivider()
         MoreRow("내보내기", "프로필 · SSID 라이브러리를 파일로 공유", onOpenExport)
+        InsetDivider()
+        MoreRow("메인보드 원본", ".out · .map 받기", onOpenMainboardPkg)
         InsetDivider()
         MoreRow("연속 세팅 요약", if (done == 0) "아직 설정한 호기가 없습니다" else "이번에 설정한 호기 ${done}대", onOpenSummary)
         InsetDivider()

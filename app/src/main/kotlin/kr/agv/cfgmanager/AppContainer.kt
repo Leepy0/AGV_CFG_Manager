@@ -34,6 +34,7 @@ import kr.agv.cfgmanager.data.HistoryStore
 import kr.agv.cfgmanager.data.PrefsStringStore
 import kr.agv.cfgmanager.data.SettingsStore
 import kr.agv.cfgmanager.log.AppLog
+import kr.agv.cfgmanager.pkg.PkgController
 import kr.agv.cfgmanager.session.BoardSource
 import kr.agv.cfgmanager.session.BridgeSession
 import kr.agv.cfgmanager.session.FakeBoardSource
@@ -138,6 +139,18 @@ class AppContainer(context: Context) {
         exclusive = { block -> session.withExclusive { channel -> block(channel) } },
         history = history,
         isFake = { boards.isFake },
+    )
+
+    /**
+     * 메인보드 원본 받기 (앱 수명 동안 유지). 세션의 독점 구간은 메인 스레드에서만 부를 수 있어서
+     * 컨트롤러는 같은 수명에 메인 디스패처로 돈다. 파일 작업은 컨트롤러가 IO 로 넘긴다.
+     */
+    val pkg = PkgController(
+        exclusive = { block -> session.withExclusive { channel -> block(channel) } },
+        agvNumber = { session.state.value.snapshot?.config?.agv },
+        cacheDir = appContext.cacheDir,
+        scope = CoroutineScope(appScope.coroutineContext + Dispatchers.Main.immediate),
+        journal = { log.info("원본", it) },
     )
 
     /** 연속 세팅 상태 (앱 수명 동안 유지). */

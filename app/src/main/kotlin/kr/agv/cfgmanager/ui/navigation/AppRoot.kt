@@ -65,6 +65,7 @@ import kr.agv.cfgmanager.ui.more.AppSettingsScreen
 import kr.agv.cfgmanager.ui.more.MoreScreen
 import kr.agv.cfgmanager.ui.more.SessionSummaryScreen
 import kr.agv.cfgmanager.ui.more.ExportScreen
+import kr.agv.cfgmanager.ui.pkg.PkgScreen
 import kr.agv.cfgmanager.ui.profiles.ProfileEditRoute
 import kr.agv.cfgmanager.ui.profiles.ProfileListRoute
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
@@ -270,6 +271,7 @@ fun AppRoot(container: AppContainer) {
                         onOpenProfiles = { push(ROUTE_PROFILES) },
                         onOpenLibrary = { push(ROUTE_LIBRARY) },
                         onOpenExport = { push(ROUTE_EXPORT) },
+                        onOpenMainboardPkg = { push(ROUTE_MAINBOARD_PKG) },
                         onOpenSummary = { push(ROUTE_SUMMARY) },
                         onOpenSettings = { push(ROUTE_APP_SETTINGS) },
                         onOpenAbout = { push(ROUTE_ABOUT) },
@@ -293,6 +295,9 @@ fun AppRoot(container: AppContainer) {
                 composable(ROUTE_EXPORT) {
                     ExportScreen(container = container)
                 }
+                composable(ROUTE_MAINBOARD_PKG) {
+                    PkgScreen(container = container)
+                }
                 composable(ROUTE_SUMMARY) {
                     SessionSummaryScreen(container = container, onMessage = notify)
                 }
@@ -312,6 +317,7 @@ private const val GATEWAY_CHECK_MS = 15_000L
 private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_LIBRARY = "library"
 private const val ROUTE_EXPORT = "export"
+private const val ROUTE_MAINBOARD_PKG = "mainboard_pkg"
 private const val ROUTE_SUMMARY = "summary"
 private const val ROUTE_APP_SETTINGS = "app_settings"
 private const val ROUTE_ABOUT = "about"
@@ -320,6 +326,7 @@ private fun subScreenTitle(route: String?): String = when {
     route == ROUTE_PROFILES -> "프로필"
     route == ROUTE_LIBRARY -> "SSID 라이브러리"
     route == ROUTE_EXPORT -> "내보내기"
+    route == ROUTE_MAINBOARD_PKG -> "메인보드 원본"
     route == ROUTE_SUMMARY -> "연속 세팅 요약"
     route == ROUTE_APP_SETTINGS -> "앱 설정"
     route == ROUTE_ABOUT -> "정보"
