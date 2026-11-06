@@ -62,9 +62,21 @@ fun parsePkgList(text: String): PkgList {
     return PkgList.Ok(arr.mapNotNull { (it as? JsonObject)?.let(::slotOrNull) })
 }
 
+private val ID_RE = Regex("[0-9a-f]{16}")
+private val SHA_RE = Regex("[0-9a-f]{64}")
+private val CRC_RE = Regex("[0-9a-f]{8}")
+
+// 펌웨어 dap_ver_valid (main/dsp_app_proto.c): 영숫자 . _ - 만, 1~8자 (DAP_VER_MAX)
+private val VER_RE = Regex("[0-9A-Za-z._-]{1,8}")
+
+/** 슬롯 크기 상한 (브리지 패키지 영역). */
+private const val SIZE_MAX = 6_287_360L
+
+private val REFUSALS = setOf("nopart", "busy", "local_only", "slot", "range", "flash")
+
 private fun slotOrNull(o: JsonObject): PkgSlot? {
     fun str(k: String) = (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.content
-    fun num(k: String) = (o[k] as? JsonPrimitive)?.longOrNull
+    fun num(k: String) = (o[k] as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
     val state = when (str("st")) {
         "STAGED" -> PkgState.Staged
         "APPLIED" -> PkgState.Applied
@@ -72,13 +84,13 @@ private fun slotOrNull(o: JsonObject): PkgSlot? {
         else -> return null
     }
     return PkgSlot(
-        index = (o["i"] as? JsonPrimitive)?.intOrNull ?: return null,
+        index = (o["i"] as? JsonPrimitive)?.takeIf { !it.isString }?.intOrNull ?: return null,
         state = state,
-        id = str("id") ?: return null,
-        ver = str("ver") ?: return null,
-        size = num("size") ?: return null,
+        id = str("id")?.takeIf { ID_RE.matches(it) } ?: return null,
+        ver = str("ver")?.takeIf { VER_RE.matches(it) } ?: return null,
+        size = num("size")?.takeIf { it in 1..SIZE_MAX } ?: return null,
         seq = num("seq") ?: return null,
-        sha256 = str("sha256") ?: return null,
+        sha256 = str("sha256")?.takeIf { SHA_RE.matches(it) } ?: return null,
     )
 }
 
@@ -91,7 +103,7 @@ fun defaultPkgSlot(slots: List<PkgSlot>): PkgSlot? =
 fun parsePkgChunk(text: String): PkgChunk {
     val lines = text.lineSequence().map { it.trim() }
     lines.firstOrNull { it.startsWith("P ") }?.let { return parseP(it) }
-    lines.firstOrNull { it.startsWith("E ") }?.let { return PkgChunk.Refused(it.substring(2).trim()) }
+    lines.firstOrNull { it.startsWith("E ") }?.let { return it.substring(2).trim().takeIf { c -> c in REFUSALS }?.let(PkgChunk::Refused) ?: PkgChunk.Bad }
     return PkgChunk.Bad
 }
 
@@ -100,7 +112,8 @@ private fun parseP(line: String): PkgChunk {
     if (t.size != 6) return PkgChunk.Bad
     val off = t[2].toLongOrNull() ?: return PkgChunk.Bad
     val n = t[3].toIntOrNull() ?: return PkgChunk.Bad
-    val crc = t[4].toLongOrNull(16) ?: return PkgChunk.Bad
+    if (!ID_RE.matches(t[1]) || off < 0 || n !in 0..512 || !CRC_RE.matches(t[4])) return PkgChunk.Bad
+    val crc = t[4].toLong(16)
     val bytes = try {
         Base64.getDecoder().decode(t[5])
     } catch (_: IllegalArgumentException) {

@@ -191,5 +191,7 @@ class FakeDeviceTest {
         assertEquals("E slot\n", device.handle("dsp pkg read 1 0 16").text)
         assertEquals("E range\n", device.handle("dsp pkg read 0 1000 16").text)
         assertEquals("E range\n", device.handle("dsp pkg read 0 0 513").text)
+        assertEquals("E range\n", device.handle("dsp pkg read 0 -5 16").text)
+        assertEquals(PkgList.Unsupported, parsePkgList(device.handle("dsp pkg").text))
     }
 }

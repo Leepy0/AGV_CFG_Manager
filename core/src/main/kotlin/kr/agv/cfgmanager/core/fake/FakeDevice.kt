@@ -230,7 +230,7 @@ class FakeDevice(val options: FakeDeviceOptions = FakeDeviceOptions()) {
     /** `dsp pkg json` · `dsp pkg read`. 슬롯 0 에 [FakeDeviceOptions.pkg] 하나, 슬롯 1 은 빈 슬롯. */
     private fun pkgCommand(parts: List<String>): FakeReply {
         val pkg = options.pkg
-        if (pkg == null) return FakeReply("pkg slot0: empty\npkg slot1: empty\n")
+        if (pkg == null || parts.size < 3) return FakeReply("pkg slot0: empty\npkg slot1: empty\n")
         if (parts.getOrNull(2) == "json") {
             val sha = MessageDigest.getInstance("SHA-256").digest(pkg).joinToString("") { "%02x".format(it) }
             return FakeReply(
@@ -240,7 +240,7 @@ class FakeDevice(val options: FakeDeviceOptions = FakeDeviceOptions()) {
         val slot = parts.getOrNull(3)?.toIntOrNull()
         val off = parts.getOrNull(4)?.toLongOrNull()
         val len = parts.getOrNull(5)?.toIntOrNull()
-        if (off == null || len == null || len !in 1..512 || slot !in 0..1) return FakeReply("E range\n")
+        if (off == null || off < 0 || len == null || len !in 1..512 || slot !in 0..1) return FakeReply("E range\n")
         if (slot == 1) return FakeReply("E slot\n")
         if (off >= pkg.size) return FakeReply("E range\n")
         val data = pkg.copyOfRange(off.toInt(), minOf(pkg.size.toLong(), off + len).toInt())

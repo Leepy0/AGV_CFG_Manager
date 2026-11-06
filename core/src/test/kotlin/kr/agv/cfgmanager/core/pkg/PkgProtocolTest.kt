@@ -108,4 +108,47 @@ class PkgProtocolTest {
         assertEquals(PkgChunk.Refused("busy"), parsePkgChunk("E busy\n"))
         assertEquals(PkgChunk.Refused("range"), parsePkgChunk("log\nE range\n"))
     }
+
+    private fun slotJson(id: String = "0123456789abcdef", ver: String = "1.2.3", size: String = "123", sha: String = this.sha, i: String = "0") =
+        """{"slots":[{"i":$i,"st":"APPLIED","id":"$id","ver":"$ver","size":$size,"seq":1,"job":0,"sha256":"$sha"}]}"""
+
+    private fun slots(json: String) = assertIs<PkgList.Ok>(parsePkgList(json)).slots
+
+    @Test
+    fun `값이 규칙에 어긋난 슬롯은 뺀다`() {
+        assertEquals(1, slots(slotJson()).size)
+        assertEquals(0, slots(slotJson(id = "../../x")).size)
+        assertEquals(0, slots(slotJson(id = "0123456789ABCDEF")).size)
+        assertEquals(0, slots(slotJson(sha = "")).size)
+        assertEquals(0, slots(slotJson(sha = "A".repeat(64))).size)
+        assertEquals(0, slots(slotJson(size = "-1")).size)
+        assertEquals(0, slots(slotJson(size = "0")).size)
+        assertEquals(1, slots(slotJson(size = "6287360")).size)
+        assertEquals(0, slots(slotJson(size = "6287361")).size)
+        assertEquals(0, slots(slotJson(size = "\"123\"")).size)
+        assertEquals(0, slots(slotJson(i = "\"0\"")).size)
+        assertEquals(0, slots(slotJson(ver = "")).size)
+        assertEquals(0, slots(slotJson(ver = "123456789")).size)
+        assertEquals(0, slots(slotJson(ver = "1/2")).size)
+        assertEquals(1, slots(slotJson(ver = "aZ0._-12")).size)
+    }
+
+    @Test
+    fun `헤더가 규칙에 어긋난 P 줄은 Bad`() {
+        val d = ByteArray(4) { 1 }
+        assertEquals(PkgChunk.Bad, parsePkgChunk(pLine("0123456789abcde", 0, d)))
+        assertEquals(PkgChunk.Bad, parsePkgChunk(pLine("0123456789ABCDEF", 0, d)))
+        assertEquals(PkgChunk.Bad, parsePkgChunk(pLine("0123456789abcdef", -1, d)))
+        val big = ByteArray(513) { 1 }
+        assertEquals(PkgChunk.Bad, parsePkgChunk(pLine("0123456789abcdef", 0, big)))
+        val crc = "%08x".format(CRC32().apply { update(d) }.value)
+        assertEquals(PkgChunk.Bad, parsePkgChunk(pLine("0123456789abcdef", 0, d, crcOverride = crc.uppercase() + "0")))
+        assertEquals(PkgChunk.Bad, parsePkgChunk(pLine("0123456789abcdef", 0, d, crcOverride = "+" + crc.substring(1))))
+    }
+
+    @Test
+    fun `모르는 E 코드는 Bad`() {
+        assertEquals(PkgChunk.Bad, parsePkgChunk("E whatever"))
+        assertEquals(PkgChunk.Refused("flash"), parsePkgChunk("E flash"))
+    }
 }
