@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kr.agv.cfgmanager.core.bridge.BridgeChannelException
+import kr.agv.cfgmanager.core.bridge.BridgeCommands
 import kr.agv.cfgmanager.core.bridge.ChannelKind
 import kr.agv.cfgmanager.core.bridge.ChannelState
 import kr.agv.cfgmanager.core.bridge.IBridgeChannel
@@ -202,7 +203,7 @@ class UsbSerialBridgeChannel(
             ReplyEnd.Marker, ReplyEnd.Idle -> Unit
         }
         val body = UsbConsole.replyBody(reply.text, line)
-        if (body.isNotEmpty()) rawFlow.tryEmit(body)
+        if (body.isNotEmpty() && !BridgeCommands.isBulkRead(line)) rawFlow.tryEmit(body)
         return body
     }
 

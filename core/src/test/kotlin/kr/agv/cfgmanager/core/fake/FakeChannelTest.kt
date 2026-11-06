@@ -1,5 +1,7 @@
 package kr.agv.cfgmanager.core.fake
 
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kr.agv.cfgmanager.core.bridge.BridgeChannelException
 import kr.agv.cfgmanager.core.bridge.ChannelState
@@ -74,5 +76,18 @@ class FakeChannelTest {
         val channel = FakeBridgeChannel(FakeDevice())
         channel.waitReady(10.seconds)
         assertEquals("unknown command 'x' - type help\r\n", channel.exec("x"))
+    }
+
+    @Test
+    fun `대량 읽기의 응답은 raw 흐름에 내보내지 않지만 돌려준다`() = runTest {
+        val channel = FakeBridgeChannel(FakeDevice())
+        channel.waitReady(10.seconds)
+        val seen = mutableListOf<String>()
+        val job = launch(Dispatchers.Unconfined) { channel.raw.collect { seen += it } }
+        channel.exec("dsp pkg read 0 0 512")
+        assertTrue(seen.isEmpty(), "대량 읽기 응답이 raw 로 나감: $seen")
+        channel.exec("stat")
+        assertEquals(1, seen.size)
+        job.cancel()
     }
 }

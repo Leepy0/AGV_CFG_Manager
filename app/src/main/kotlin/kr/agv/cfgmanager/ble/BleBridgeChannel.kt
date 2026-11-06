@@ -268,7 +268,7 @@ class BleBridgeChannel(
             ReplyEnd.Closed -> throw BridgeChannelException.Disconnected()
             ReplyEnd.Marker, ReplyEnd.Idle -> Unit
         }
-        if (reply.text.isNotEmpty()) rawFlow.tryEmit(reply.text)
+        if (reply.text.isNotEmpty() && !BridgeCommands.isBulkRead(line)) rawFlow.tryEmit(reply.text)
         return reply.text
     }
 

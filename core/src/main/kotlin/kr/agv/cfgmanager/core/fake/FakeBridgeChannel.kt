@@ -119,7 +119,7 @@ class FakeBridgeChannel(
         }
         val reply = device.handle(line)
         val result = deliver(reply, ReplyRule.forCommand(line, kind), timeout)
-        if (result.text.isNotEmpty()) rawFlow.emit(result.text)
+        if (result.text.isNotEmpty() && !BridgeCommands.isBulkRead(line)) rawFlow.emit(result.text)
         if (result.end == ReplyEnd.Timeout) throw BridgeChannelException.Timeout(redacted)
         if (result.end == ReplyEnd.Closed) {
             dropLink()

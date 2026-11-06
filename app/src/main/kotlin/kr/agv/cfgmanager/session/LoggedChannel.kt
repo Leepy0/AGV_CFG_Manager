@@ -1,5 +1,6 @@
 package kr.agv.cfgmanager.session
 
+import kr.agv.cfgmanager.core.bridge.BridgeCommands
 import kr.agv.cfgmanager.core.bridge.IBridgeChannel
 import kotlin.time.Duration
 
@@ -15,8 +16,11 @@ internal class LoggedChannel(
 ) : IBridgeChannel by inner {
 
     override suspend fun exec(line: String, timeout: Duration): String {
-        log.sent(line, clock())
-        onChange()
+        // 패키지 조각 읽기는 수천 번 오가므로 기록하면 콘솔 버퍼가 밀려난다
+        if (!BridgeCommands.isBulkRead(line)) {
+            log.sent(line, clock())
+            onChange()
+        }
         return inner.exec(line, timeout)
     }
 
