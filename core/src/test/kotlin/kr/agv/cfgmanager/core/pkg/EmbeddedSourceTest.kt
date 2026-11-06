@@ -172,16 +172,16 @@ class EmbeddedSourceTest {
     @Test
     fun `한도를 넘는 선언은 풀기 전에 거부한다`() {
         val raw = rawOf("main.c" to MAIN_C)
-        rejected(srcSection(srcBlobOf(raw, declared = 16 * 1024 * 1024 + 1)), "원본 길이")
-        // 워드 단위라 2 MiB 워드 + 1 은 4 MiB + 2 B
-        rejected(coffOf(Section(".srcfiles", srcBlobOf(raw)), sizeWords = 2L * 1024 * 1024 + 1), "섹션 크기")
+        rejected(srcSection(srcBlobOf(raw, declared = 128 * 1024 * 1024 + 1)), "원본 길이")
+        // 워드 단위라 3 MiB 워드 + 1 은 6 MiB + 2 B
+        rejected(coffOf(Section(".srcfiles", srcBlobOf(raw)), sizeWords = 3L * 1024 * 1024 + 1), "섹션 크기")
     }
 
     @Test
     fun `한도 안의 선언은 한도 검사로 거부하지 않는다`() {
         val raw = rawOf("main.c" to MAIN_C)
-        rejected(srcSection(srcBlobOf(raw, declared = 16 * 1024 * 1024)), "원본 길이 부족")
-        rejected(coffOf(Section(".srcfiles", srcBlobOf(raw)), sizeWords = 2L * 1024 * 1024), "섹션이 파일 밖")
+        rejected(srcSection(srcBlobOf(raw, declared = 128 * 1024 * 1024)), "원본 길이 부족")
+        rejected(coffOf(Section(".srcfiles", srcBlobOf(raw)), sizeWords = 3L * 1024 * 1024), "섹션이 파일 밖")
     }
 
     @Test
@@ -195,6 +195,26 @@ class EmbeddedSourceTest {
     @Test
     fun `섹션 데이터가 파일 밖이면 거부한다`() {
         rejected(coffOf(Section(".srcfiles", srcBlobOf(rawOf("main.c" to MAIN_C))), sizeWords = 100_000))
+    }
+
+    @Test
+    fun `5 MB 소스 파일을 그대로 복원한다`() {
+        // 실제 run_process_DA.c 크기. 버퍼 경계를 넘어 이어지는 뒷 파일까지 맞아야 한다
+        val line = "void SIEL_C_COMP_Belt_Transfer(void); // 적재\n".toByteArray()
+        val big = ByteArray(5_044_840) { line[it % line.size] }
+        out.writeBytes(srcCoffOf("run_process_DA.c" to big, "tag.h" to TAG_H))
+
+        val files = EmbeddedSource.extract(out, dir)
+
+        assertContentEquals(big, files[0].readBytes())
+        assertContentEquals(TAG_H, files[1].readBytes())
+    }
+
+    @Test
+    fun `중간 파일이 깨지면 먼저 쓴 파일도 남지 않는다`() {
+        val raw = rawOf("main.c" to MAIN_C, "../x.c" to TAG_H)
+        rejected(srcSection(srcBlobOf(raw)), "이름 규칙 위반")
+        assertFalse(dir.exists())
     }
 
     @Test
