@@ -23,6 +23,7 @@ import kr.agv.cfgmanager.core.pkg.defaultPkgSlot
 import kr.agv.cfgmanager.core.pkg.parsePkgList
 import java.io.File
 import java.io.IOException
+import java.util.Locale
 
 /** 메인보드 원본 화면 상태. 오류 문구는 단어뿐이고 예외 원문 · 경로 · 펌웨어 코드는 담지 않는다. */
 sealed interface PkgUi {
@@ -48,6 +49,8 @@ sealed interface PkgUi {
  */
 class PkgController(
     private val exclusive: suspend (suspend (IBridgeChannel) -> Unit) -> Unit,
+    /** 세션이 다른 작업으로 독점 중이면 true (`BridgeSession.busy`). */
+    private val isBusy: () -> Boolean,
     private val agvNumber: () -> Int?,
     cacheDir: File,
     private val scope: CoroutineScope,
@@ -150,6 +153,10 @@ class PkgController(
     }
 
     private suspend fun runDownload(slot: PkgSlot) {
+        if (isBusy()) {
+            fail("작업 중", retryable = true, id = slot.id)
+            return
+        }
         val part = File(pkgDir, "${slot.id}.part")
         uiFlow.value = PkgUi.Downloading(slot, 0, slot.size)
         journal("원본 받기 시작 슬롯 ${slot.index}")
@@ -178,6 +185,7 @@ class PkgController(
             PkgDownloadOutcome.Busy -> fail("메인보드 작업 중", true, slot.id)
             PkgDownloadOutcome.SlotChanged -> fail("패키지 변경됨", true, null)
             PkgDownloadOutcome.Corrupt -> fail("내용 불일치", true, slot.id)
+            PkgDownloadOutcome.DiskFailed -> fail("저장 공간 부족 또는 쓰기 실패", true, slot.id)
             is PkgDownloadOutcome.Failed -> if (result.reason == "range") {
                 withContext(io) { part.delete() }
                 fail("패키지 변경됨", true, null)
@@ -205,7 +213,7 @@ class PkgController(
     }
 
     private fun folderName(slot: PkgSlot): String =
-        "AGV%02d_%s_%s".format(agvNumber() ?: 0, slot.ver, slot.id.take(ID_SHORT))
+        "AGV%02d_%s_%s".format(Locale.ROOT, agvNumber() ?: 0, slot.ver, slot.id.take(ID_SHORT))
 
     private fun fail(text: String, retryable: Boolean, id: String?) {
         retryId = id

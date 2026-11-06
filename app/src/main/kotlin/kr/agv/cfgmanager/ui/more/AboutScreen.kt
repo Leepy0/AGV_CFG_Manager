@@ -41,7 +41,7 @@ import kr.agv.cfgmanager.ui.theme.AgvSpacing
 import java.time.LocalDate
 
 /** 지원하는 브리지 버전 범위 (docs/DEVELOPMENT_PLAN.md 3.6). 기능 유무는 출력으로 감지한다. */
-const val SUPPORTED_BRIDGE_RANGE = "0.5.0 ~ 0.5.5"
+const val SUPPORTED_BRIDGE_RANGE = "0.5.0 이상 · 원본 받기 0.9.1 이상"
 
 /** 정보 화면 (F-G5): 버전 · 채널 · 커밋 · 지원 브리지 · 업데이트 · 로그 내보내기 · 오픈소스 고지. */
 @Composable

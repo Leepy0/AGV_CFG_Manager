@@ -137,6 +137,7 @@ class AppContainer(context: Context) {
     /** 공장 초기화 (F-A5). 세션의 독점 구간에서 defaults → reboot 을 보낸다. */
     val factoryReset = FactoryResetRunner(
         exclusive = { block -> session.withExclusive { channel -> block(channel) } },
+        isBusy = { session.busy },
         history = history,
         isFake = { boards.isFake },
     )
@@ -147,6 +148,7 @@ class AppContainer(context: Context) {
      */
     val pkg = PkgController(
         exclusive = { block -> session.withExclusive { channel -> block(channel) } },
+        isBusy = { session.busy },
         agvNumber = { session.state.value.snapshot?.config?.agv },
         cacheDir = appContext.cacheDir,
         scope = CoroutineScope(appScope.coroutineContext + Dispatchers.Main.immediate),

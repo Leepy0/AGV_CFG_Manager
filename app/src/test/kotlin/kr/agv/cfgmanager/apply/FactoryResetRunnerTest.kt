@@ -43,10 +43,11 @@ class FactoryResetRunnerTest {
     }
 
     /** 세션의 독점 구간을 흉내 낸다: 준비된 채널을 한 번 넘긴다. */
-    private fun runnerFor(channel: IBridgeChannel?) = FactoryResetRunner(
+    private fun runnerFor(channel: IBridgeChannel?, busy: Boolean = false) = FactoryResetRunner(
         exclusive = { block ->
             block(channel ?: throw BridgeChannelException.NotConnected())
         },
+        isBusy = { busy },
         history = history,
         clock = { 1_700_000_000_000L },
     )
@@ -70,6 +71,13 @@ class FactoryResetRunnerTest {
         val run = runnerFor(channel).run(target)
         assertIs<FactoryResetOutcome.RebootRefused>(run.outcome)
         assertEquals("reboot_refused", history.readAll().single().result)
+    }
+
+    @Test
+    fun `세션이 작업 중이면 아무것도 보내지 않고 이력도 남기지 않는다`() = runTest {
+        val run = runnerFor(readyChannel(), busy = true).run(target)
+        assertEquals(FactoryResetOutcome.EraseFailed("원본 받는 중"), run.outcome)
+        assertTrue(history.readAll().isEmpty())
     }
 
     @Test

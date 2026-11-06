@@ -1,5 +1,6 @@
 package kr.agv.cfgmanager.ui.pkg
 
+import android.content.ActivityNotFoundException
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +46,7 @@ import kr.agv.cfgmanager.ui.components.StatePanel
 import kr.agv.cfgmanager.ui.theme.AgvSizes
 import kr.agv.cfgmanager.ui.theme.AgvSpacing
 import kr.agv.cfgmanager.ui.theme.AgvTheme
+import java.util.Locale
 
 private const val SAVE_FAILED = "저장 실패"
 
@@ -129,7 +131,14 @@ fun PkgScreen(container: AppContainer) {
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(AgvSpacing.S)) {
                     Button(
-                        onClick = { picker.launch(null) },
+                        onClick = {
+                            try {
+                                picker.launch(null)
+                            } catch (_: ActivityNotFoundException) {
+                                saveError = true
+                                controller.onSaveFailed(SAVE_FAILED)
+                            }
+                        },
                         enabled = !saving,
                         modifier = Modifier.weight(1f).heightIn(min = AgvSizes.PrimaryAction),
                     ) { Text(if (saving) "저장 중" else "저장") }
@@ -231,7 +240,7 @@ private fun stateLabel(state: PkgState): String = when (state) {
 
 /** 1 MB 미만은 KB, 그 이상은 MB (소수 한 자리). */
 internal fun formatSize(bytes: Long): String =
-    if (bytes < MB) "${(bytes + KB - 1) / KB} KB" else "%.1f MB".format(bytes.toDouble() / MB)
+    if (bytes < MB) "${(bytes + KB - 1) / KB} KB" else "%.1f MB".format(Locale.ROOT, bytes.toDouble() / MB)
 
 private const val KB = 1024L
 private const val MB = 1024L * 1024L

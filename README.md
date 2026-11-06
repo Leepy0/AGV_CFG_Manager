@@ -96,7 +96,7 @@ GitHub 저장소 Settings → Secrets and variables → Actions 에 다음 네 �
 
 ## 지원 브리지 버전
 
-펌웨어 **0.5.0 ~ 0.5.5** 를 지원합니다(기준 0.5.5). 구버전은 출력으로 기능을 감지하므로 설정 · 읽기 · 적용이 그대로 동작합니다. 브리지에 요청한 변경은 [docs/BRIDGE_CHANGE_REQUESTS.md](docs/BRIDGE_CHANGE_REQUESTS.md) 를 참고합니다. 메인보드 원본 받기는 0.9.1 이상이 필요하고 다른 기능은 그대로입니다.
+펌웨어 **0.5.0 이상** 을 지원합니다(기준 0.5.5). 구버전은 출력으로 기능을 감지하므로 설정 · 읽기 · 적용이 그대로 동작합니다. 브리지에 요청한 변경은 [docs/BRIDGE_CHANGE_REQUESTS.md](docs/BRIDGE_CHANGE_REQUESTS.md) 를 참고합니다. 메인보드 원본 받기는 **0.9.1 이상** 이 필요하고 다른 기능은 그대로입니다.
 
 ## 현장 확인 (실기)
 

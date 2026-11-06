@@ -25,7 +25,10 @@ sealed interface PkgDownloadOutcome {
     /** 다 받았지만 sha256 이 다르다. 파일은 지웠다. */
     data object Corrupt : PkgDownloadOutcome
 
-    /** 재시도 초과, 거절 코드, 파일 오류. 파일은 남아 있다. */
+    /** 받은 내용을 파일에 쓰지 못했다 (공간 부족 등). 파일은 남아 있다. */
+    data object DiskFailed : PkgDownloadOutcome
+
+    /** 재시도 초과, 거절 코드. 파일은 남아 있다. */
     data class Failed(val reason: String) : PkgDownloadOutcome
 }
 
@@ -45,8 +48,8 @@ object PkgDownloadWorkflow {
         onProgress: (done: Long, total: Long) -> Unit,
     ): PkgDownloadOutcome = try {
         download(channel, slot, part, onProgress)
-    } catch (e: IOException) {
-        PkgDownloadOutcome.Failed(e.message ?: "파일 오류")
+    } catch (_: IOException) {
+        PkgDownloadOutcome.DiskFailed
     }
 
     private suspend fun download(

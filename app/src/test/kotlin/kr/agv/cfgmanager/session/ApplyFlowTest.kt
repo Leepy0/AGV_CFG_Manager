@@ -1,9 +1,15 @@
 package kr.agv.cfgmanager.session
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kr.agv.cfgmanager.apply.ApplyRunner
 import kr.agv.cfgmanager.apply.ApplyUi
 import kr.agv.cfgmanager.core.bridge.BridgeConfig
@@ -141,6 +147,27 @@ class ApplyFlowTest {
             }
             assertTrue(rig.session.sendConsole("stat").isSuccess)
         } finally {
+            rig.close()
+        }
+    }
+
+    @Test
+    fun `세션이 독점 중이면 적용을 기다리지 않고 거절한다`() = runTest {
+        val rig = Rig(this)
+        val release = CompletableDeferred<Unit>()
+        try {
+            val target = ConfigForm.check(rig.connectDraft().with(ConfigKey.AGV, "8")).config!!
+            launch(start = CoroutineStart.UNDISPATCHED) { rig.session.withExclusive { release.await() } }
+            assertTrue(rig.runner.start(target, saveOnly = false))
+
+            // 이력은 실제 IO 로 쓰므로 실제 시간으로 기다린다
+            val done = withContext(Dispatchers.Default) {
+                withTimeout(5_000) { rig.runner.state.first { it is ApplyUi.Done } as ApplyUi.Done }
+            }
+            assertEquals(ApplyOutcome.Failed(ApplyStep.Validate, ApplyFailure.NotReady("원본 받는 중")), done.result.outcome)
+            assertEquals(0, rig.device.saveCount)
+        } finally {
+            release.complete(Unit)
             rig.close()
         }
     }

@@ -32,11 +32,14 @@ data class ResetRun(val outcome: FactoryResetOutcome, val historyFailed: Boolean
  */
 class FactoryResetRunner(
     private val exclusive: suspend (suspend (IBridgeChannel) -> FactoryResetOutcome) -> FactoryResetOutcome,
+    /** 세션이 다른 작업으로 독점 중이면 true (`BridgeSession.busy`). */
+    private val isBusy: () -> Boolean,
     private val history: HistoryStore,
     private val clock: () -> Long = System::currentTimeMillis,
     private val isFake: () -> Boolean = { false },
 ) {
     suspend fun run(target: ResetTarget): ResetRun {
+        if (isBusy()) return ResetRun(FactoryResetOutcome.EraseFailed("원본 받는 중"), historyFailed = false)
         val outcome = try {
             exclusive { channel -> FactoryResetWorkflow.run(channel) }
         } catch (notConnected: BridgeChannelException.NotConnected) {

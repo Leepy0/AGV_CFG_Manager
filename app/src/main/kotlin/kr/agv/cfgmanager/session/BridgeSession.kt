@@ -76,8 +76,12 @@ class BridgeSession(
     private var lastActivityMs = clock()
     private val wrongPasswordCounts = HashMap<String, Int>()
 
-    /** [withExclusive] 가 도는 동안 true. 호출 스레드(메인)에서만 읽고 쓴다. */
+    /** [withExclusive] 가 도는 동안 true. 적용 실행기는 기본 디스패처에서 읽으므로 volatile 이다. */
+    @Volatile
     private var workflowRunning = false
+
+    /** 독점 작업(적용 · 초기화 · 원본 받기)이 도는 중이다. 길게 기다리게 될 작업은 시작 전에 이 값으로 거절한다. */
+    val busy: Boolean get() = workflowRunning
 
     private data class Target(val address: String, val name: String?, val password: String)
 
@@ -109,7 +113,7 @@ class BridgeSession(
         password: String,
         onStage: (ConnectStage) -> Unit = {},
     ): ConnectOutcome {
-        if (workflowRunning) return ConnectOutcome.Failed(ConnectFailure.Other("적용 중이라 다른 보드에 연결할 수 없습니다"))
+        if (workflowRunning) return ConnectOutcome.Failed(ConnectFailure.Other("작업 중이라 다른 보드에 연결할 수 없습니다"))
         connectJob = currentCoroutineContext()[Job]
         userClosed = false
         journal("연결 시도")
@@ -165,7 +169,7 @@ class BridgeSession(
      * [auto] 이면 사용자 활동으로 치지 않는다 (유휴 끊김 타이머를 막지 않는다).
      */
     suspend fun refreshStatus(auto: Boolean = false): Result<BridgeStatus> {
-        if (workflowRunning) return Result.failure(IllegalStateException("적용 중입니다"))
+        if (workflowRunning) return Result.failure(IllegalStateException("작업 중입니다"))
         return lock.withLock {
             val channel = logged ?: return@withLock Result.failure(BridgeChannelException.NotConnected())
             if (!auto) touch()
@@ -198,7 +202,7 @@ class BridgeSession(
         if (command.utf8Length() > BridgeCommands.BLE_LINE_MAX_BYTES) {
             return Result.failure(IllegalArgumentException("명령이 너무 깁니다 (BLE 한 줄은 ${BridgeCommands.BLE_LINE_MAX_BYTES}바이트까지)"))
         }
-        if (workflowRunning) return Result.failure(IllegalStateException("적용 중에는 콘솔을 쓸 수 없습니다"))
+        if (workflowRunning) return Result.failure(IllegalStateException("작업 중에는 콘솔을 쓸 수 없습니다"))
         val words = command.split(' ')
         if (words.first() == "reboot") {
             return when (val outcome = reboot()) {
@@ -226,7 +230,7 @@ class BridgeSession(
 
     /** 재부팅 요청(`reboot`). 응답이 `rebooting` 이면 같은 주소로 다시 붙어 장치를 읽는다 (F-C5). */
     suspend fun reboot(): RebootOutcome {
-        if (workflowRunning) return RebootOutcome.Failed(IllegalStateException("적용 중입니다"))
+        if (workflowRunning) return RebootOutcome.Failed(IllegalStateException("작업 중입니다"))
         touch()
         return lock.withLock {
             val channel = logged ?: return@withLock RebootOutcome.Failed(BridgeChannelException.NotConnected())
@@ -255,7 +259,7 @@ class BridgeSession(
 
     /** 설정 모드를 닫는다(`setup off`). 보드는 곧 광고를 멈추므로 자동 재연결하지 않는다. */
     suspend fun closeSetupMode(): Result<String> {
-        if (workflowRunning) return Result.failure(IllegalStateException("적용 중입니다"))
+        if (workflowRunning) return Result.failure(IllegalStateException("작업 중입니다"))
         userClosed = true
         reconnectJob?.cancel()
         reconnectJob = null
@@ -290,6 +294,7 @@ class BridgeSession(
         try {
             block(channel)
         } finally {
+            touch()
             workflowRunning = false
             // 이 블록은 취소될 수 있으므로 suspend 호출 없이 상태만 맞춘다.
             if (active?.state?.value is ChannelState.Connected) {

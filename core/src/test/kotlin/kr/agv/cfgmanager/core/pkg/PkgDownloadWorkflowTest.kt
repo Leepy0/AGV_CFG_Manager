@@ -330,10 +330,10 @@ class PkgDownloadWorkflowTest {
     }
 
     @Test
-    fun `파일을 쓸 수 없으면 죽지 않고 Failed 다`() = runTest {
+    fun `파일을 쓸 수 없으면 죽지 않고 DiskFailed 다`() = runTest {
         val blocker = File(dir, "blocker").apply { writeText("x") }
 
-        assertIs<PkgDownloadOutcome.Failed>(run(ScriptedChannel(pkg), file = File(blocker, "$PKG_ID.part")))
+        assertEquals(PkgDownloadOutcome.DiskFailed, run(ScriptedChannel(pkg), file = File(blocker, "$PKG_ID.part")))
 
         assertEquals("x", blocker.readText())
     }

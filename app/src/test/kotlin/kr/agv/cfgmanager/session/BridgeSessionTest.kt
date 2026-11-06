@@ -99,6 +99,17 @@ class BridgeSessionTest {
     }
 
     @Test
+    fun `긴 독점 작업이 끝나면 유휴 시간을 새로 세어 바로 끊지 않는다`() = runTest {
+        var now = 0L
+        val session = BridgeSession(boards(), backgroundScope, clock = { now })
+        session.connect(address, null, "agvsetup")
+        session.withExclusive { now += 6 * 60_000L }
+        advanceTimeBy(20_000L)
+        runCurrent()
+        assertEquals(LinkStatus.Connected, session.state.value.link)
+    }
+
+    @Test
     fun `설정 모드를 닫으면 자동 재연결 없이 끊김으로 둔다`() = runTest {
         val session = session()
         session.connect(address, null, "agvsetup")

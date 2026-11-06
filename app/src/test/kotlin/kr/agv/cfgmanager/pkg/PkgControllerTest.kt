@@ -139,10 +139,11 @@ class PkgControllerTest {
         cache.deleteRecursively()
     }
 
-    private fun TestScope.controller(channel: IBridgeChannel?, agv: Int? = 7): PkgController {
+    private fun TestScope.controller(channel: IBridgeChannel?, agv: Int? = 7, busy: () -> Boolean = { false }): PkgController {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
         return PkgController(
             exclusive = { block -> block(channel ?: throw BridgeChannelException.NotConnected()) },
+            isBusy = busy,
             agvNumber = { agv },
             cacheDir = cache,
             scope = CoroutineScope(backgroundScope.coroutineContext + dispatcher),
@@ -275,6 +276,34 @@ class PkgControllerTest {
         c.refresh()
         assertEquals(during, c.ui.value)
         assertEquals(listOf(0L, 512L), channel.readOffsets.toList())
+    }
+
+    @Test
+    fun `세션이 작업 중이면 받기를 거절하고 다시 시도로 받는다`() = runTest {
+        val pkg = validPackage()
+        val channel = PkgChannel(pkg, manifestId(pkg))
+        var sessionBusy = false
+        val c = controller(channel, busy = { sessionBusy })
+        val slot = slotsOf(c).slots.single()
+        sessionBusy = true
+        c.download(slot)
+        c.until { it is PkgUi.Error }
+        assertEquals(PkgUi.Error("작업 중", canRetry = true), c.ui.value)
+        assertTrue(channel.readOffsets.isEmpty())
+        sessionBusy = false
+        c.retry()
+        c.until { it is PkgUi.ReadyToSave }
+    }
+
+    @Test
+    fun `파일에 쓰지 못하면 저장 공간 문구이고 다시 시도할 수 있다`() = runTest {
+        val pkg = validPackage()
+        val id = manifestId(pkg)
+        File(pkgDir, "$id.part").mkdirs() // 폴더라서 파일로 열리지 않는다
+        val c = controller(PkgChannel(pkg, id))
+        c.download(slotsOf(c).slots.single())
+        c.until { it is PkgUi.Error }
+        assertEquals(PkgUi.Error("저장 공간 부족 또는 쓰기 실패", canRetry = true), c.ui.value)
     }
 
     @Test

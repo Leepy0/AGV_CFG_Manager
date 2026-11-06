@@ -155,6 +155,9 @@ class ApplyRunner(
         try {
             if (before == null || session.state.value.link != LinkStatus.Connected) {
                 finished = notReady("장치에 연결되지 않았습니다. 세팅 탭에서 연결하세요.")
+            } else if (session.busy) {
+                // 기다렸다가 사람이 떠난 뒤 저장 · 재부팅을 보내면 안 된다
+                finished = notReady("원본 받는 중")
             } else {
                 val request = ApplyRequest(before = before, target = target, saveOnly = saveOnly)
                 finished = session.withExclusive { channel ->
