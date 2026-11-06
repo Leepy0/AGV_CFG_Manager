@@ -60,4 +60,13 @@ object BridgeCommands {
         true -> "setup on"
         false -> "setup off"
     }
+
+    /** 메인보드 원본 슬롯 목록 (펌웨어 0.9.1 이상). */
+    fun pkgJson(): String = "dsp pkg json"
+
+    /** 슬롯 [slot] 의 패키지 [off] 부터 [len] 바이트 (1~512). */
+    fun pkgRead(slot: Int, off: Long, len: Int): String = "dsp pkg read $slot $off $len"
+
+    /** 응답이 base64 로 긴 줄이 되는 명령인지. */
+    fun isBulkRead(line: String): Boolean = line.startsWith("dsp pkg read ")
 }

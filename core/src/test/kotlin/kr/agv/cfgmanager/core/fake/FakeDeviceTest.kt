@@ -1,6 +1,13 @@
 package kr.agv.cfgmanager.core.fake
 
 import kr.agv.cfgmanager.core.bridge.ResponseParsers
+import kr.agv.cfgmanager.core.pkg.PkgChunk
+import kr.agv.cfgmanager.core.pkg.PkgList
+import kr.agv.cfgmanager.core.pkg.parsePkgChunk
+import kr.agv.cfgmanager.core.pkg.parsePkgList
+import java.security.MessageDigest
+import kotlin.test.assertContentEquals
+import kotlin.test.assertIs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -156,5 +163,33 @@ class FakeDeviceTest {
         assertEquals(0xC0A80A6BL, parseIpLike("192.168.10.107"))
         assertEquals(null, parseIpLike("192.168.10.256"))
         assertEquals(null, parseIpLike("192.168.10"))
+    }
+
+    @Test
+    fun `pkg 가 없으면 dsp pkg json 은 구버전 텍스트로 답한다`() {
+        val device = FakeDevice()
+        device.handle("login agvsetup")
+        assertEquals(PkgList.Unsupported, parsePkgList(device.handle("dsp pkg json").text))
+    }
+
+    @Test
+    fun `pkg 가 있으면 슬롯 목록과 조각을 돌려준다`() {
+        val data = ByteArray(1000) { (it * 7).toByte() }
+        val device = FakeDevice(FakeDeviceOptions(pkg = data))
+        device.handle("login agvsetup")
+        val ok = assertIs<PkgList.Ok>(parsePkgList(device.handle("dsp pkg json").text))
+        assertEquals(listOf(0), ok.slots.map { it.index })
+        val slot = ok.slots[0]
+        assertEquals(1000L, slot.size)
+        assertEquals(
+            MessageDigest.getInstance("SHA-256").digest(data).joinToString("") { "%02x".format(it) },
+            slot.sha256,
+        )
+        val c = assertIs<PkgChunk.Data>(parsePkgChunk(device.handle("dsp pkg read 0 900 512").text))
+        assertEquals(slot.id, c.id)
+        assertContentEquals(data.copyOfRange(900, 1000), c.bytes)
+        assertEquals("E slot\n", device.handle("dsp pkg read 1 0 16").text)
+        assertEquals("E range\n", device.handle("dsp pkg read 0 1000 16").text)
+        assertEquals("E range\n", device.handle("dsp pkg read 0 0 513").text)
     }
 }

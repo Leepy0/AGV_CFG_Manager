@@ -1,6 +1,9 @@
 package kr.agv.cfgmanager.core.fake
 
 import kr.agv.cfgmanager.core.util.utf8Length
+import java.security.MessageDigest
+import java.util.Base64
+import java.util.zip.CRC32
 
 /** 가짜 장치가 응답 뒤 하는 일. */
 enum class FakeAction { None, Disconnect, Reboot }
@@ -55,6 +58,8 @@ data class FakeDeviceOptions(
     val reappearsAfterReboot: Boolean = true,
     /** help 에 덧붙일 선택 기능 명령 (예: "discard"). 펌웨어 기능 차이 시험용. */
     val helpExtras: List<String> = emptyList(),
+    /** 패키지 원본. null 이면 `dsp pkg json` 에 구버전 텍스트로 답한다(기능 없는 펌웨어). */
+    val pkg: ByteArray? = null,
 )
 
 /**
@@ -217,8 +222,30 @@ class FakeDevice(val options: FakeDeviceOptions = FakeDeviceOptions()) {
         return when (parts.getOrNull(1)) {
             "ver" -> FakeReply("version query sent - 'dsp' to see\n")
             "apply" -> FakeReply("apply requested - progress goes to server (DSP_OTA_RESULT)\n")
+            "pkg" -> pkgCommand(parts)
             else -> FakeReply(dspLine() + "\n")
         }
+    }
+
+    /** `dsp pkg json` · `dsp pkg read`. 슬롯 0 에 [FakeDeviceOptions.pkg] 하나, 슬롯 1 은 빈 슬롯. */
+    private fun pkgCommand(parts: List<String>): FakeReply {
+        val pkg = options.pkg
+        if (pkg == null) return FakeReply("pkg slot0: empty\npkg slot1: empty\n")
+        if (parts.getOrNull(2) == "json") {
+            val sha = MessageDigest.getInstance("SHA-256").digest(pkg).joinToString("") { "%02x".format(it) }
+            return FakeReply(
+                """{"slots":[{"i":0,"st":"APPLIED","id":"$PKG_ID","ver":"1.0.0","size":${pkg.size},"seq":1,"job":0,"sha256":"$sha"},{"i":1,"st":"empty"}]}""" + "\n",
+            )
+        }
+        val slot = parts.getOrNull(3)?.toIntOrNull()
+        val off = parts.getOrNull(4)?.toLongOrNull()
+        val len = parts.getOrNull(5)?.toIntOrNull()
+        if (off == null || len == null || len !in 1..512 || slot !in 0..1) return FakeReply("E range\n")
+        if (slot == 1) return FakeReply("E slot\n")
+        if (off >= pkg.size) return FakeReply("E range\n")
+        val data = pkg.copyOfRange(off.toInt(), minOf(pkg.size.toLong(), off + len).toInt())
+        val crc = CRC32().apply { update(data) }.value
+        return FakeReply("P $PKG_ID $off ${data.size} ${"%08x".format(crc)} ${Base64.getEncoder().encodeToString(data)}\n")
     }
 
     private fun helpText(): String {
@@ -324,6 +351,8 @@ fun parseIpLike(text: String): Long? {
 
 internal fun ipText(v: Long): String =
     "${(v shr 24) and 0xFF}.${(v shr 16) and 0xFF}.${(v shr 8) and 0xFF}.${v and 0xFF}"
+
+private const val PKG_ID = "0123456789abcdef"
 
 private fun versionAtLeast(fw: String, major: Int, minor: Int, patch: Int): Boolean {
     val parts = fw.split('.').map { it.toIntOrNull() ?: 0 }
